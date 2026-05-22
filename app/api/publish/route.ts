@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { createAppServices } from "@/lib/app/services";
+import { requireAdmin } from "@/lib/auth/require-admin";
 import { PublishService } from "@/lib/publish/publish-service";
 
 type PublishPayload = {
@@ -14,8 +15,11 @@ type PublishPayload = {
 };
 
 export async function POST(request: Request) {
+  const unauthorized = await requireAdmin();
+  if (unauthorized) return unauthorized;
+
   const payload = (await request.json()) as PublishPayload;
-  const { repository, queue, siteAdapter } = createAppServices();
+  const { repository, queue, siteAdapter } = await createAppServices();
   const service = new PublishService(repository, queue, siteAdapter);
   const now = new Date().toISOString();
 

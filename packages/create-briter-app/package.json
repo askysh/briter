@@ -1,0 +1,8 @@
+{
+  "name": "create-briter-app",
+  "version": "0.1.0",
+  "type": "module",
+  "bin": {
+    "create-briter-app": "./index.mjs"
+  }
+}

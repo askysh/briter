@@ -1,9 +1,10 @@
-import { resolveBriterEnv } from "@/lib/config/env";
+import { getAdapter } from "@/lib/adapters/adapter-registry";
+import { loadRuntimeConfig } from "@/lib/config/runtime-config";
 import { DiskJobQueue } from "@/lib/queue/disk-job-queue";
 import { GitSyncWorker } from "@/lib/worker/git-sync-worker";
 import { NoopGitClient, ShellGitClient } from "@/lib/worker/git-client";
 
-const env = resolveBriterEnv();
+const env = await loadRuntimeConfig();
 const queue = new DiskJobQueue(env.queueRoot);
 const git = env.workerDryRun
   ? new NoopGitClient()
@@ -13,7 +14,7 @@ const git = env.workerDryRun
       env.gitAuthorEmail,
     );
 
-const worker = new GitSyncWorker(env, queue, git);
+const worker = new GitSyncWorker(env, queue, git, getAdapter(env.siteAdapterKey));
 
 async function tick() {
   const processed = await worker.processDueJobs();

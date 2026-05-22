@@ -1,9 +1,43 @@
 export const dynamic = "force-dynamic";
 
 import { notFound } from "next/navigation";
+import type { Metadata } from "next";
 
 import { createAppServices } from "@/lib/app/services";
+import { getSiteIdentity } from "@/lib/public/site-identity";
 import { renderMarkdownPreview } from "@/lib/preview/markdown-preview";
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ slug: string }>;
+}): Promise<Metadata> {
+  const { slug } = await params;
+  const [{ repository }, site] = await Promise.all([
+    createAppServices(),
+    getSiteIdentity(),
+  ]);
+  const post = await repository.getPost(slug);
+  if (!post) return {};
+
+  const url = `${site.baseUrl}/posts/${post.slug}`;
+  return {
+    title: post.frontmatter.title,
+    description: post.frontmatter.summary,
+    alternates: { canonical: url },
+    openGraph: {
+      type: "article",
+      url,
+      title: post.frontmatter.title,
+      description: post.frontmatter.summary,
+    },
+    twitter: {
+      card: "summary_large_image",
+      title: post.frontmatter.title,
+      description: post.frontmatter.summary,
+    },
+  };
+}
 
 export default async function PublishedPostPage({
   params,
@@ -11,7 +45,7 @@ export default async function PublishedPostPage({
   params: Promise<{ slug: string }>;
 }) {
   const { slug } = await params;
-  const { repository } = createAppServices();
+  const { repository } = await createAppServices();
   const post = await repository.getPost(slug);
 
   if (!post || post.status !== "published") {

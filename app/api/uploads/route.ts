@@ -1,9 +1,13 @@
 import { NextResponse } from "next/server";
 
 import { createAppServices } from "@/lib/app/services";
+import { requireAdmin } from "@/lib/auth/require-admin";
 import { UploadLimitError } from "@/lib/uploads/image-upload-service";
 
 export async function POST(request: Request) {
+  const unauthorized = await requireAdmin();
+  if (unauthorized) return unauthorized;
+
   const formData = await request.formData();
   const file = formData.get("file");
 
@@ -12,7 +16,7 @@ export async function POST(request: Request) {
   }
 
   try {
-    const { uploads } = createAppServices();
+    const { uploads } = await createAppServices();
     const result = await uploads.store(file);
 
     return NextResponse.json(result);

@@ -27,7 +27,7 @@ export default async function DocsPage({
     notFound();
   }
 
-  const { env } = createAppServices();
+  const { env } = await createAppServices();
   const markdown = await readFile(join(env.appRoot, "docs", fileName), "utf8");
   const preview = await renderMarkdownPreview(markdown);
 

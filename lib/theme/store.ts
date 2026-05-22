@@ -1,14 +1,14 @@
 import { promises as fs } from "node:fs";
 import { dirname, join } from "node:path";
 
-import { resolveBriterEnv } from "@/lib/config/env";
+import { resolveBriterPaths } from "@/lib/config/paths";
 
 import { DEFAULT_THEME_CONFIG, DEFAULT_LAYOUT } from "./defaults";
 import type { LayoutPrefs, ThemeConfig, ThemeTokens } from "./types";
 
 function themePath(): string {
-  const env = resolveBriterEnv();
-  return join(env.appRoot, "storage", "theme.json");
+  const paths = resolveBriterPaths(process.cwd());
+  return join(paths.storageRoot, "theme.json");
 }
 
 const EDITOR_WIDTHS: LayoutPrefs["editorWidth"][] = ["narrow", "default", "wide"];

@@ -7,7 +7,7 @@ export async function GET(
   { params }: { params: Promise<{ slug: string }> },
 ) {
   const { slug } = await params;
-  const { repository } = createAppServices();
+  const { repository } = await createAppServices();
   const post = await repository.getPost(slug);
 
   if (!post) {

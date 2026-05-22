@@ -24,7 +24,7 @@ export async function GET(
     return new NextResponse("Not found", { status: 404 });
   }
 
-  const { env } = createAppServices();
+  const { env } = await createAppServices();
   const safeFileName = basename(file);
   const filePath = join(env.uploadRoot, safeFileName);
 

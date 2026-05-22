@@ -16,6 +16,7 @@ export const localMdxSiteAdapter: SiteAdapter = {
   key: "local-mdx",
   label: "Local MDX Site",
   contentExtension: ".mdx",
+  publicReader: "self",
   getEditorHref(slug) {
     return `/write/${slug}`;
   },
@@ -27,6 +28,9 @@ export const localMdxSiteAdapter: SiteAdapter = {
   },
   getRevalidatePaths(slug) {
     return ["/", `/write/${slug}`, `/preview/${slug}`, `/posts/${slug}`];
+  },
+  getAllowedPaths() {
+    return [/^content\//, /^storage\/uploads\//];
   },
   buildCommitMessage(action: PostAction, post: PostDocument) {
     return `briter: ${describeAction(action)} "${post.frontmatter.title}"`;

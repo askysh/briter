@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 
+import { requireAdmin } from "@/lib/auth/require-admin";
 import { resolveTheme } from "@/lib/theme/resolve";
 import {
   loadThemeConfig,
@@ -8,11 +9,17 @@ import {
 } from "@/lib/theme/store";
 
 export async function GET() {
+  const unauthorized = await requireAdmin();
+  if (unauthorized) return unauthorized;
+
   const config = await loadThemeConfig();
   return NextResponse.json({ config, resolved: resolveTheme(config) });
 }
 
 export async function POST(request: Request) {
+  const unauthorized = await requireAdmin();
+  if (unauthorized) return unauthorized;
+
   const payload = await request.json();
   const config = sanitizeThemeConfig(payload);
   await saveThemeConfig(config);

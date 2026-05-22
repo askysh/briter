@@ -1,22 +1,7 @@
 import { join } from "node:path";
+import type { RuntimeConfig } from "@/lib/config/runtime-config";
 
-export type BriterEnv = {
-  appRoot: string;
-  siteAdapterKey: string;
-  contentRoot: string;
-  uploadRoot: string;
-  queueRoot: string;
-  gitWorktreeRoot: string;
-  gitBranch: string;
-  gitRemote: string;
-  gitAuthorName: string;
-  gitAuthorEmail: string;
-  publicBaseUrl: string;
-  uploadRouteBase: string;
-  workerDryRun: boolean;
-  workerPollIntervalMs: number;
-  uploadStorageLimitBytes: number;
-};
+export type BriterEnv = RuntimeConfig & { appRoot: string };
 
 function parseBoolean(value: string | undefined, fallback: boolean) {
   if (value === undefined) {
@@ -56,5 +41,10 @@ export function resolveBriterEnv(
         String(500 * 1024 * 1024),
       10,
     ),
+    siteName: source.BRITER_SITE_NAME ?? "Briter",
+    siteDescription:
+      source.BRITER_SITE_DESCRIPTION ?? "A small, opinionated writing app.",
+    siteAuthor: source.BRITER_SITE_AUTHOR ?? "Writer",
+    configured: source.BRITER_CONFIGURED === "1",
   };
 }

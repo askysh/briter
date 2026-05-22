@@ -1,52 +1,123 @@
 # Briter
 
-Briter is a small, opinionated writer app for people who self-host their own
-sites and keep content in plain files.
+> A self-hosted writing studio with a built-in public reader, git-native sync, and zero SaaS ceremony.
 
-This scaffold keeps the core shape explicit from day one:
+![Version](https://img.shields.io/badge/version-0.1.0-black)
+![Runtime](https://img.shields.io/badge/runtime-bun-ff6b2c)
+![Framework](https://img.shields.io/badge/framework-next.js_16-111)
+![License](https://img.shields.io/badge/license-MIT-2ea44f)
 
-- writer-first UI with a plain textarea and live preview
-- content stored as Markdown or MDX in a git repo
-- image uploads treated as first-class input
-- a disk-backed git-sync queue
-- a separate worker boundary for commit and push
-- a site adapter seam so the editor core is not welded to one site forever
+## Why Briter Exists
 
-## Stack
+Briter is designed for people who want:
 
-- Next.js App Router
-- TypeScript
-- Bun for scripts and tests
-- Tailwind CSS 4
-- `gray-matter` for frontmatter
-- `unified` + `remark` + `rehype` for preview rendering
-- `sharp` for image variants
+- Markdown/MDX as source of truth.
+- Their own infra and repos.
+- A polished editor with preview and media flow.
+- A worker that handles git sync outside the request path.
 
-## Local setup
+No dashboard theater. No multi-tenant abstraction tax. Just writing and shipping.
+
+## Core Capabilities
+
+| Surface | What you get |
+|---|---|
+| Setup | First-boot wizard (`/setup`) writing runtime config + secrets |
+| Auth | Password login + optional TOTP |
+| Admin | Editor, theme settings, queue-aware dashboard at `/admin` |
+| Reader | Public landing + `/posts` + `/posts/[slug]` |
+| Publishing | Draft / schedule / publish through file-backed repository |
+| Sync | Disk queue + worker commit/push pipeline |
+| SEO | `feed.xml`, `sitemap.xml`, `robots.txt` |
+| Extensibility | Adapter registry (`local-mdx`, `git-target`) |
+
+## 60-Second Start
 
 ```bash
 bun install
 bun run dev
 ```
 
-Run the worker separately:
+Open:
+
+- `http://localhost:3075/setup` (first boot)
+- `http://localhost:3075/admin` (after login)
+- `http://localhost:3075/posts` (public reader)
+
+In another terminal:
 
 ```bash
 bun run worker
 ```
 
-## Important directories
+## Install Modes
 
-- `app/` — routes, API handlers, and upload streaming route
-- `components/` — dashboard, editor, and preview UI
-- `lib/content/` — file-backed post model and repository
-- `lib/uploads/` — upload service and manifest types
-- `lib/queue/` — disk-backed queue model
-- `lib/worker/` — git worker client and runner
-- `docs/` — product philosophy, architecture, local development, scope, roadmap
+### 1. Local
 
-## Notes on scope
+```bash
+bun install
+bun run dev
+```
 
-This scaffold is single-user first and intentionally avoids multi-tenant SaaS
-machinery. The canonical source of truth is still the content repo, not a
-database.
+### 2. Docker
+
+```bash
+docker compose up --build
+```
+
+### 3. Scaffolder
+
+```bash
+bun run build:template
+bunx create-briter-app my-blog --with-docker --adapter=local-mdx
+```
+
+## Architecture Snapshot
+
+```text
+Writer UI  --->  /api/publish  --->  FileContentRepository  --->  content/*.mdx
+    |                    |                    |
+    |                    v                    v
+    |               DiskJobQueue  --->  worker/index.ts  --->  git commit/push
+    |
+    +-- /api/uploads ---> sharp pipeline ---> storage/uploads/*
+```
+
+## Scripts
+
+```bash
+bun run dev
+bun run build
+bun run test
+bun run lint
+bun run worker
+bun run worker:once
+bun run build:template
+```
+
+## Project Map
+
+```text
+app/        routes + APIs
+components/ UI
+lib/        auth, config, adapters, queue, uploads, worker internals
+worker/     runtime worker entry
+docs/       markdown docs rendered at /docs
+packages/   create-briter-app workspace package
+```
+
+## Security Notes
+
+- Secrets are file-backed under `storage/secrets.json`.
+- Session cookies are `httpOnly`.
+- Sensitive admin APIs enforce authenticated session checks.
+- Upload path guards prevent traversal and unsafe extensions.
+
+## Release Notes
+
+`CHANGELOG.md` tracks release deltas.  
+`release.yml` is scaffolded for tag-driven publishing flows.
+
+---
+
+If writing is your product loop, Briter is your control plane.

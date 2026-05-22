@@ -15,7 +15,7 @@ export default async function PreviewPage({
 }) {
   const { slug } = await params;
   const { view } = await searchParams;
-  const { repository } = createAppServices();
+  const { repository } = await createAppServices();
   const post = await repository.getPost(slug);
 
   if (!post) {

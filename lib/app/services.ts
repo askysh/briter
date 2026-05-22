@@ -1,18 +1,19 @@
-import { localMdxSiteAdapter } from "@/lib/adapters/local-mdx-site-adapter";
-import { resolveBriterEnv } from "@/lib/config/env";
+import { getAdapter } from "@/lib/adapters/adapter-registry";
+import { loadRuntimeConfig } from "@/lib/config/runtime-config";
 import { FileContentRepository } from "@/lib/content/file-content-repository";
 import { DiskJobQueue } from "@/lib/queue/disk-job-queue";
 import { ImageUploadService } from "@/lib/uploads/image-upload-service";
 
-export function createAppServices() {
-  const env = resolveBriterEnv();
+export async function createAppServices() {
+  const env = await loadRuntimeConfig();
+  const siteAdapter = getAdapter(env.siteAdapterKey);
 
   return {
     env,
-    siteAdapter: localMdxSiteAdapter,
+    siteAdapter,
     repository: new FileContentRepository(
       env.contentRoot,
-      localMdxSiteAdapter.contentExtension,
+      siteAdapter.contentExtension,
     ),
     queue: new DiskJobQueue(env.queueRoot),
     uploads: new ImageUploadService(

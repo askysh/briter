@@ -1,0 +1,16 @@
+services:
+  web:
+    command: bun run dev
+    environment:
+      - NODE_ENV=development
+    volumes:
+      - ./:/app
+    ports:
+      - "3075:3075"
+
+  worker:
+    command: bun run worker
+    environment:
+      - NODE_ENV=development
+    volumes:
+      - ./:/app

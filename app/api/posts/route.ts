@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 import { createAppServices } from "@/lib/app/services";
 
 export async function GET() {
-  const { repository } = createAppServices();
+  const { repository } = await createAppServices();
   const posts = await repository.listPosts();
 
   return NextResponse.json(
