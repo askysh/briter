@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 
 import { createAppServices } from "@/lib/app/services";
 import { requireAdmin } from "@/lib/auth/require-admin";
+import { createPreviewToken } from "@/lib/preview/preview-token";
 import { PublishService } from "@/lib/publish/publish-service";
 
 type PublishPayload = {
@@ -19,7 +20,7 @@ export async function POST(request: Request) {
   if (unauthorized) return unauthorized;
 
   const payload = (await request.json()) as PublishPayload;
-  const { repository, queue, siteAdapter } = await createAppServices();
+  const { repository, queue, siteAdapter, env } = await createAppServices();
   const service = new PublishService(repository, queue, siteAdapter);
   const now = new Date().toISOString();
 
@@ -52,5 +53,9 @@ export async function POST(request: Request) {
     payload.action,
   );
 
-  return NextResponse.json(result);
+  const token = await createPreviewToken(result.post.slug);
+  return NextResponse.json({
+    ...result,
+    previewShareUrl: `${env.publicBaseUrl}/preview/${result.post.slug}?token=${encodeURIComponent(token)}`,
+  });
 }

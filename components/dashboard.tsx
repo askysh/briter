@@ -1,14 +1,17 @@
 import Link from "next/link";
 
 import type { PostDocument } from "@/lib/content/types";
+import { StorageUsageBar } from "@/components/admin/storage-usage-bar";
 import { StatusPill } from "@/components/status-pill";
 
 export function Dashboard({
   posts,
   queueSummary,
+  storageUsage,
 }: {
   posts: PostDocument[];
   queueSummary: { pending: number; failed: number };
+  storageUsage: { usedBytes: number; capBytes: number };
 }) {
   return (
     <div className="section-stack">
@@ -48,6 +51,10 @@ export function Dashboard({
       </section>
 
       <section className="panel dashboard-list">
+        <StorageUsageBar
+          usedBytes={storageUsage.usedBytes}
+          capBytes={storageUsage.capBytes}
+        />
         <div className="split-note">
           <div>
             <h2 className="page-title" style={{ fontSize: "2rem" }}>

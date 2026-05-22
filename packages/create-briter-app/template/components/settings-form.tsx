@@ -43,9 +43,15 @@ const SHAPE_ROWS: TokenRow[] = [
 export function SettingsForm({
   initialConfig,
   initialResolved,
+  initialRuntime,
 }: {
   initialConfig: ThemeConfig;
   initialResolved: ResolvedTheme;
+  initialRuntime: {
+    siteAdapterKey: string;
+    publicBaseUrl: string;
+    publishedHrefTemplate: string;
+  };
 }) {
   const router = useRouter();
   const [hostCss, setHostCss] = useState(initialConfig.hostCss);
@@ -57,6 +63,7 @@ export function SettingsForm({
   const [message, setMessage] = useState<string>("");
   const [isPending, startTransition] = useTransition();
   const [isSaving, setIsSaving] = useState(false);
+  const [runtime, setRuntime] = useState(initialRuntime);
 
   const extractedCount = useMemo(
     () => Object.keys(resolved.extracted).length,
@@ -114,6 +121,16 @@ export function SettingsForm({
 
     if (!response.ok) {
       setMessage("Save failed.");
+      return;
+    }
+
+    const runtimeResponse = await fetch("/api/settings/runtime", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(runtime),
+    });
+    if (!runtimeResponse.ok) {
+      setMessage("Theme saved, runtime settings failed.");
       return;
     }
 
@@ -280,6 +297,68 @@ export function SettingsForm({
               Show status pill, view toggle, and article header in previews
             </span>
           </label>
+        </div>
+      </section>
+
+      <section className="settings-section">
+        <div className="settings-section-head">
+          <h2>Adapter</h2>
+          <span className="settings-section-hint">Publishing target</span>
+        </div>
+
+        <div className="settings-row">
+          <label htmlFor="site-adapter" className="settings-row-label">
+            Site adapter
+          </label>
+          <select
+            id="site-adapter"
+            className="settings-select"
+            value={runtime.siteAdapterKey}
+            onChange={(event) =>
+              setRuntime((current) => ({
+                ...current,
+                siteAdapterKey: event.target.value,
+              }))
+            }
+          >
+            <option value="local-mdx">Local MDX</option>
+            <option value="git-target">Git Target</option>
+          </select>
+        </div>
+
+        <div className="settings-row">
+          <label htmlFor="public-base-url" className="settings-row-label">
+            Public base URL
+          </label>
+          <input
+            id="public-base-url"
+            className="settings-select"
+            value={runtime.publicBaseUrl}
+            onChange={(event) =>
+              setRuntime((current) => ({
+                ...current,
+                publicBaseUrl: event.target.value,
+              }))
+            }
+          />
+        </div>
+
+        <div className="settings-row">
+          <label htmlFor="published-template" className="settings-row-label">
+            Published href template
+          </label>
+          <input
+            id="published-template"
+            className="settings-select"
+            placeholder="https://example.com/posts/{slug}"
+            value={runtime.publishedHrefTemplate}
+            onChange={(event) =>
+              setRuntime((current) => ({
+                ...current,
+                publishedHrefTemplate: event.target.value,
+              }))
+            }
+          />
         </div>
       </section>
     </div>

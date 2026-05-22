@@ -1,6 +1,7 @@
 "use client";
 
 import { FormEvent, useState } from "react";
+import QRCode from "qrcode";
 
 export default function SetupPage() {
   const [siteName, setSiteName] = useState("Briter");
@@ -10,6 +11,8 @@ export default function SetupPage() {
   const [enableTotp, setEnableTotp] = useState(false);
   const [totpUri, setTotpUri] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [totpQr, setTotpQr] = useState<string | null>(null);
+  const [done, setDone] = useState(false);
 
   async function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -36,7 +39,10 @@ export default function SetupPage() {
     }
 
     setTotpUri(data.totpUri ?? null);
-    window.location.href = "/login";
+    if (data.totpUri) {
+      setTotpQr(await QRCode.toDataURL(data.totpUri));
+    }
+    setDone(true);
   }
 
   return (
@@ -55,6 +61,8 @@ export default function SetupPage() {
           <button type="submit">Complete setup</button>
           {error ? <p>{error}</p> : null}
           {totpUri ? <p>{totpUri}</p> : null}
+          {totpQr ? <img src={totpQr} alt="TOTP QR" style={{ width: 180, height: 180 }} /> : null}
+          {done ? <a className="button button-primary" href="/login">Continue to login</a> : null}
         </form>
       </section>
     </main>

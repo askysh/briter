@@ -47,6 +47,7 @@ export class DiskJobQueue {
       attempts: job.attempts + 1,
       lastError: error,
       scheduledFor: nextRun.toISOString(),
+      nextRunAt: nextRun.toISOString(),
       updatedAt: new Date().toISOString(),
     };
 

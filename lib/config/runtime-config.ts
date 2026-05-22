@@ -23,6 +23,7 @@ export type RuntimeConfig = {
   siteName: string;
   siteDescription: string;
   siteAuthor: string;
+  publishedHrefTemplate: string;
   configured: boolean;
 };
 
@@ -58,6 +59,7 @@ function defaults(appRoot: string): RuntimeConfig {
     siteName: "Briter",
     siteDescription: "A small, opinionated writing app.",
     siteAuthor: "Writer",
+    publishedHrefTemplate: "",
     configured: false,
   };
 }
@@ -104,6 +106,7 @@ export async function loadRuntimeConfig(
           base.uploadStorageLimitBytes,
         )
       : undefined,
+    publishedHrefTemplate: source.BRITER_PUBLISHED_HREF_TEMPLATE,
   };
 
   const merged = {
@@ -130,6 +133,8 @@ export async function loadRuntimeConfig(
     siteName: merged.siteName || base.siteName,
     siteDescription: merged.siteDescription || base.siteDescription,
     siteAuthor: merged.siteAuthor || base.siteAuthor,
+    publishedHrefTemplate:
+      merged.publishedHrefTemplate || base.publishedHrefTemplate,
   };
 }
 

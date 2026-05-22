@@ -7,6 +7,7 @@ export type GitSyncJob = {
   paths: string[];
   commitMessage: string;
   scheduledFor: string;
+  nextRunAt?: string;
   attempts: number;
   lastError?: string;
   createdAt: string;
@@ -31,6 +32,7 @@ export function createGitSyncJob(input: EnqueueGitSyncJobInput): GitSyncJob {
     paths: input.paths,
     commitMessage: input.commitMessage,
     scheduledFor: input.scheduledFor ?? now,
+    nextRunAt: input.scheduledFor ?? now,
     attempts: 0,
     createdAt: now,
     updatedAt: now,

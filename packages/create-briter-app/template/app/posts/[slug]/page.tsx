@@ -1,9 +1,10 @@
 export const dynamic = "force-dynamic";
 
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import type { Metadata } from "next";
 
 import { createAppServices } from "@/lib/app/services";
+import { resolvePublishedHref } from "@/lib/adapters/published-href";
 import { getSiteIdentity } from "@/lib/public/site-identity";
 import { renderMarkdownPreview } from "@/lib/preview/markdown-preview";
 
@@ -45,7 +46,11 @@ export default async function PublishedPostPage({
   params: Promise<{ slug: string }>;
 }) {
   const { slug } = await params;
-  const { repository } = await createAppServices();
+  const { repository, env, siteAdapter } = await createAppServices();
+  if (siteAdapter.publicReader === "external") {
+    const href = resolvePublishedHref(env.publishedHrefTemplate, slug);
+    if (href) redirect(href);
+  }
   const post = await repository.getPost(slug);
 
   if (!post || post.status !== "published") {

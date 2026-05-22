@@ -1,11 +1,15 @@
 export const dynamic = "force-dynamic";
 
 import { SettingsForm } from "@/components/settings-form";
+import { loadRuntimeConfig } from "@/lib/config/runtime-config";
 import { resolveTheme } from "@/lib/theme/resolve";
 import { loadThemeConfig } from "@/lib/theme/store";
 
 export default async function SettingsPage() {
-  const config = await loadThemeConfig();
+  const [config, runtime] = await Promise.all([
+    loadThemeConfig(),
+    loadRuntimeConfig(),
+  ]);
   const resolved = resolveTheme(config);
 
   return (
@@ -20,7 +24,15 @@ export default async function SettingsPage() {
         </p>
       </section>
 
-      <SettingsForm initialConfig={config} initialResolved={resolved} />
+      <SettingsForm
+        initialConfig={config}
+        initialResolved={resolved}
+        initialRuntime={{
+          siteAdapterKey: runtime.siteAdapterKey,
+          publicBaseUrl: runtime.publicBaseUrl,
+          publishedHrefTemplate: runtime.publishedHrefTemplate,
+        }}
+      />
     </div>
   );
 }

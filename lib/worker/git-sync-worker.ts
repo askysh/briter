@@ -35,7 +35,8 @@ export class GitSyncWorker {
         await this.git.push(this.env.gitRemote, this.env.gitBranch);
         await this.queue.remove(job.id);
       } catch (error) {
-        const delayMs = Math.min(30_000 * 2 ** job.attempts, 30 * 60_000);
+        const retryDelays = [60_000, 5 * 60_000, 30 * 60_000];
+        const delayMs = retryDelays[Math.min(job.attempts, retryDelays.length - 1)];
         const nextRun = new Date(now.getTime() + delayMs);
         const message =
           error instanceof Error ? error.message : "Unknown git worker failure";

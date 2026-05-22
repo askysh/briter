@@ -45,6 +45,7 @@ export function resolveBriterEnv(
     siteDescription:
       source.BRITER_SITE_DESCRIPTION ?? "A small, opinionated writing app.",
     siteAuthor: source.BRITER_SITE_AUTHOR ?? "Writer",
+    publishedHrefTemplate: source.BRITER_PUBLISHED_HREF_TEMPLATE ?? "",
     configured: source.BRITER_CONFIGURED === "1",
   };
 }

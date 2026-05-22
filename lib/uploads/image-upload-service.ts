@@ -1,12 +1,16 @@
 import { createHash } from "node:crypto";
-import { mkdir, readdir, readFile, stat, writeFile } from "node:fs/promises";
+import { mkdir, readFile, stat, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 
 import sharp from "sharp";
 
 import type { UploadManifest, UploadVariant } from "@/lib/uploads/upload-manifest";
+import { computeDirectorySize, isNearCapacity } from "@/lib/uploads/budget";
 
 const DEFAULT_WIDTHS = [400, 800, 1200, 1600];
+const SUPPORTED_INPUT_FORMATS = new Set(["jpeg", "png", "webp", "avif", "gif"]);
+const MAX_DIMENSION = 8000;
+const MAX_PIXELS = 24_000_000;
 
 export class UploadLimitError extends Error {}
 
@@ -24,14 +28,30 @@ export class ImageUploadService {
     if (usage + buffer.byteLength > this.storageLimitBytes) {
       throw new UploadLimitError("Upload storage limit exceeded.");
     }
+    if (isNearCapacity(usage + buffer.byteLength, this.storageLimitBytes)) {
+      throw new UploadLimitError("Upload storage is near capacity (95% soft cap).");
+    }
 
     await mkdir(this.root, { recursive: true });
 
     const hash = createHash("sha256").update(buffer).digest("hex");
     const image = sharp(buffer).rotate();
     const metadata = await image.metadata();
+    if (!metadata.format || !SUPPORTED_INPUT_FORMATS.has(metadata.format)) {
+      throw new Error("Unsupported image format.");
+    }
     const originalWidth = metadata.width ?? 0;
     const originalHeight = metadata.height ?? 0;
+    if (!originalWidth || !originalHeight) {
+      throw new Error("Could not detect image dimensions.");
+    }
+    if (
+      originalWidth > MAX_DIMENSION ||
+      originalHeight > MAX_DIMENSION ||
+      originalWidth * originalHeight > MAX_PIXELS
+    ) {
+      throw new Error("Image dimensions exceed allowed limits.");
+    }
     const widths = DEFAULT_WIDTHS.filter((width) => width <= originalWidth);
     const variantWidths = widths.length > 0 ? widths : [originalWidth || 800];
     const variants: UploadVariant[] = [];
@@ -98,12 +118,6 @@ export class ImageUploadService {
   }
 
   async getUsageBytes() {
-    await mkdir(this.root, { recursive: true });
-    const files = await readdir(this.root);
-    const stats = await Promise.all(
-      files.map(async (fileName) => stat(join(this.root, fileName))),
-    );
-
-    return stats.reduce((total, entry) => total + entry.size, 0);
+    return computeDirectorySize(this.root);
   }
 }

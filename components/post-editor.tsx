@@ -27,6 +27,17 @@ const EMPTY_PREVIEW: PreviewState = {
   readingTimeMinutes: 1,
 };
 
+function snapshot(input: {
+  slug: string;
+  title: string;
+  summary: string;
+  body: string;
+  tags: string;
+  publishedAt: string;
+}) {
+  return JSON.stringify(input);
+}
+
 export function PostEditor({ initialPost }: { initialPost: EditablePost }) {
   const router = useRouter();
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -39,8 +50,21 @@ export function PostEditor({ initialPost }: { initialPost: EditablePost }) {
   const [message, setMessage] = useState("Saved files will enqueue a git sync job.");
   const [preview, setPreview] = useState<PreviewState>(EMPTY_PREVIEW);
   const [busyAction, setBusyAction] = useState<string | null>(null);
+  const [shareUrl, setShareUrl] = useState<string>("");
+  const [isAutosaving, setIsAutosaving] = useState(false);
+  const previewWrapRef = useRef<HTMLDivElement>(null);
   const deferredBody = useDeferredValue(body);
   const resolvedSlug = slugify(slug || title || "untitled-post");
+  const [lastSavedSnapshot, setLastSavedSnapshot] = useState(() =>
+    snapshot({
+      slug: resolvedSlug,
+      title,
+      summary,
+      body,
+      tags,
+      publishedAt,
+    }),
+  );
 
   useEffect(() => {
     const controller = new AbortController();
@@ -70,15 +94,20 @@ export function PostEditor({ initialPost }: { initialPost: EditablePost }) {
     };
   }, [deferredBody]);
 
-  async function submit(action: "save-draft" | "schedule" | "publish") {
-    setBusyAction(action);
-    setMessage(
-      action === "save-draft"
-        ? "Saving draft and queueing git sync…"
-        : action === "schedule"
-          ? "Scheduling post and queueing git sync…"
-          : "Publishing post and queueing git sync…",
-    );
+  async function submit(
+    action: "save-draft" | "schedule" | "publish",
+    options?: { silent?: boolean },
+  ) {
+    if (!options?.silent) {
+      setBusyAction(action);
+      setMessage(
+        action === "save-draft"
+          ? "Saving draft and queueing git sync…"
+          : action === "schedule"
+            ? "Scheduling post and queueing git sync…"
+            : "Publishing post and queueing git sync…",
+      );
+    }
 
     const response = await fetch("/api/publish", {
       method: "POST",
@@ -102,19 +131,37 @@ export function PostEditor({ initialPost }: { initialPost: EditablePost }) {
       editorHref?: string;
       previewHref?: string;
       publishedHref?: string;
+      previewShareUrl?: string;
     };
 
-    setBusyAction(null);
+    if (!options?.silent) {
+      setBusyAction(null);
+    }
 
     if (!response.ok) {
-      setMessage(payload.error ?? "Save failed.");
+      if (!options?.silent) {
+        setMessage(payload.error ?? "Save failed.");
+      }
       return;
     }
 
     setSlug(resolvedSlug);
-    setMessage("Saved. The worker can pick up the queued sync job.");
-    router.replace(payload.editorHref ?? `/write/${resolvedSlug}`);
-    router.refresh();
+    setShareUrl(payload.previewShareUrl ?? "");
+    setLastSavedSnapshot(
+      snapshot({
+        slug: resolvedSlug,
+        title,
+        summary,
+        body,
+        tags,
+        publishedAt,
+      }),
+    );
+    if (!options?.silent) {
+      setMessage("Saved. The worker can pick up the queued sync job.");
+      router.replace(payload.editorHref ?? `/write/${resolvedSlug}`);
+      router.refresh();
+    }
   }
 
   async function uploadFile(file: File) {
@@ -178,6 +225,54 @@ export function PostEditor({ initialPost }: { initialPost: EditablePost }) {
     event.preventDefault();
     void uploadFile(file);
   }
+
+  async function sharePreview() {
+    const response = await fetch("/api/preview/share", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ slug: resolvedSlug }),
+    });
+    const payload = (await response.json()) as { url?: string; error?: string };
+    if (!response.ok || !payload.url) {
+      setMessage(payload.error ?? "Could not generate preview link.");
+      return;
+    }
+    setShareUrl(payload.url);
+    setMessage("Preview link generated (24h).");
+  }
+
+  function syncPreviewScroll(event: React.UIEvent<HTMLTextAreaElement>) {
+    const source = event.currentTarget;
+    const target = previewWrapRef.current;
+    if (!target) return;
+
+    const sourceMax = source.scrollHeight - source.clientHeight;
+    if (sourceMax <= 0) return;
+    const ratio = source.scrollTop / sourceMax;
+    const targetMax = target.scrollHeight - target.clientHeight;
+    target.scrollTop = targetMax * ratio;
+  }
+
+  useEffect(() => {
+    const nextSnapshot = snapshot({
+      slug: resolvedSlug,
+      title,
+      summary,
+      body,
+      tags,
+      publishedAt,
+    });
+    const dirty = nextSnapshot !== lastSavedSnapshot;
+    if (!dirty || busyAction !== null) return;
+
+    const timer = setTimeout(async () => {
+      setIsAutosaving(true);
+      await submit("save-draft", { silent: true });
+      setIsAutosaving(false);
+    }, 1500);
+
+    return () => clearTimeout(timer);
+  }, [resolvedSlug, title, summary, body, tags, publishedAt, lastSavedSnapshot, busyAction]);
 
   return (
     <div className="section-stack">
@@ -256,6 +351,9 @@ export function PostEditor({ initialPost }: { initialPost: EditablePost }) {
               <a className="button button-ghost" href={`/preview/${resolvedSlug}`}>
                 Open preview
               </a>
+              <button className="button button-ghost" type="button" onClick={() => void sharePreview()}>
+                Share preview
+              </button>
             </div>
           </div>
 
@@ -266,6 +364,7 @@ export function PostEditor({ initialPost }: { initialPost: EditablePost }) {
               onChange={(event) => setBody(event.target.value)}
               onPaste={handlePaste}
               onDrop={handleDrop}
+              onScroll={syncPreviewScroll}
               onDragOver={(event) => event.preventDefault()}
               placeholder="Write in Markdown or MDX. Paste screenshots directly."
             />
@@ -299,6 +398,8 @@ export function PostEditor({ initialPost }: { initialPost: EditablePost }) {
           </div>
 
           <p className="message">{message}</p>
+          {isAutosaving ? <p className="message">Autosaving…</p> : null}
+          {shareUrl ? <p className="message">{shareUrl}</p> : null}
         </div>
 
         <aside className="panel editor-panel panel-strong">
@@ -309,7 +410,7 @@ export function PostEditor({ initialPost }: { initialPost: EditablePost }) {
             </div>
           </div>
 
-          <div className="preview-wrap">
+          <div className="preview-wrap" ref={previewWrapRef}>
             <div
               className="prose"
               dangerouslySetInnerHTML={{ __html: preview.html }}

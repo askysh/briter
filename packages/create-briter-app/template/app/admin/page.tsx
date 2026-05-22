@@ -10,11 +10,18 @@ export default async function AdminPage() {
     redirect("/setup");
   }
 
-  const { repository, queue } = await createAppServices();
-  const [posts, queueSummary] = await Promise.all([
+  const { repository, queue, uploads, env } = await createAppServices();
+  const [posts, queueSummary, usedBytes] = await Promise.all([
     repository.listPosts(),
     queue.getSummary(),
+    uploads.getUsageBytes(),
   ]);
 
-  return <Dashboard posts={posts} queueSummary={queueSummary} />;
+  return (
+    <Dashboard
+      posts={posts}
+      queueSummary={queueSummary}
+      storageUsage={{ usedBytes, capBytes: env.uploadStorageLimitBytes }}
+    />
+  );
 }
