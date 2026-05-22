@@ -1,0 +1,10 @@
+{
+  "hostCss": ":root {\n    --accent: #8a5a24;\n    --muted: #6e665a;\n    --radius: 0.5rem;\n  }\n\n  body {\n    background: #fbf7ee;\n    color: #1c1a16;\n    font-family: ui-serif, Georgia, \"Iowan Old Style\", serif;\n  }\n\n  a {\n    color: #8a5a24;\n  }\n\n  article {\n    max-width: 640px;\n  }\n\n  Dark (matches #0d0c0a):\n\n  :root {\n    --accent: #d4b483;\n    --muted: #a7a095;\n    --radius: 0.5rem;\n  }\n\n  body {\n    background: #0d0c0a;\n    color: #ece7db;\n    font-family: ui-serif, Georgia, \"Iowan Old Style\", serif;\n  }\n\n  a {\n    color: #d4b483;\n  }\n\n  article {\n    max-width: 640px;\n  }",
+  "overrides": {},
+  "layout": {
+    "editorWidth": "wide",
+    "previewChrome": true,
+    "panelDensity": "compact",
+    "applyHostCss": true
+  }
+}
