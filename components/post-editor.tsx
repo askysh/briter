@@ -1,6 +1,6 @@
 "use client";
 
-import { startTransition, useDeferredValue, useEffect, useRef, useState } from "react";
+import { startTransition, useCallback, useDeferredValue, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 
 import { slugify } from "@/lib/content/post-document";
@@ -94,10 +94,10 @@ export function PostEditor({ initialPost }: { initialPost: EditablePost }) {
     };
   }, [deferredBody]);
 
-  async function submit(
+  const submit = useCallback(async (
     action: "save-draft" | "schedule" | "publish",
     options?: { silent?: boolean },
-  ) {
+  ) => {
     if (!options?.silent) {
       setBusyAction(action);
       setMessage(
@@ -162,7 +162,7 @@ export function PostEditor({ initialPost }: { initialPost: EditablePost }) {
       router.replace(payload.editorHref ?? `/write/${resolvedSlug}`);
       router.refresh();
     }
-  }
+  }, [resolvedSlug, title, summary, body, tags, publishedAt, router]);
 
   async function uploadFile(file: File) {
     const formData = new FormData();
@@ -272,7 +272,7 @@ export function PostEditor({ initialPost }: { initialPost: EditablePost }) {
     }, 1500);
 
     return () => clearTimeout(timer);
-  }, [resolvedSlug, title, summary, body, tags, publishedAt, lastSavedSnapshot, busyAction]);
+  }, [resolvedSlug, title, summary, body, tags, publishedAt, lastSavedSnapshot, busyAction, submit]);
 
   return (
     <div className="section-stack">

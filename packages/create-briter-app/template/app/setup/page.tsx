@@ -61,6 +61,8 @@ export default function SetupPage() {
           <button type="submit">Complete setup</button>
           {error ? <p>{error}</p> : null}
           {totpUri ? <p>{totpUri}</p> : null}
+          {/* QR code is a runtime data URI — next/image requires a known src */}
+          {/* eslint-disable-next-line @next/next/no-img-element */}
           {totpQr ? <img src={totpQr} alt="TOTP QR" style={{ width: 180, height: 180 }} /> : null}
           {done ? <a className="button button-primary" href="/login">Continue to login</a> : null}
         </form>
