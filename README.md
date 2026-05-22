@@ -1,123 +1,60 @@
 # Briter
 
-> A self-hosted writing studio with a built-in public reader, git-native sync, and zero SaaS ceremony.
+**Start a blog you own.**
 
-![Version](https://img.shields.io/badge/version-0.1.0-black)
-![Runtime](https://img.shields.io/badge/runtime-bun-ff6b2c)
-![Framework](https://img.shields.io/badge/framework-next.js_16-111)
-![License](https://img.shields.io/badge/license-MIT-2ea44f)
+Briter is a self-hosted blog editor. Install it, point a domain at it, write.
+Your posts are Markdown files backed by git. No database, no vendor lock-in, no monthly fee.
 
-## Why Briter Exists
+<!-- TODO: Record and add GIF after dogfood phase -->
+<!-- [15-second GIF of setup wizard → writing a post → seeing it published] -->
 
-Briter is designed for people who want:
+## Get started
 
-- Markdown/MDX as source of truth.
-- Their own infra and repos.
-- A polished editor with preview and media flow.
-- A worker that handles git sync outside the request path.
-
-No dashboard theater. No multi-tenant abstraction tax. Just writing and shipping.
-
-## Core Capabilities
-
-| Surface | What you get |
-|---|---|
-| Setup | First-boot wizard (`/setup`) writing runtime config + secrets |
-| Auth | Password login + optional TOTP |
-| Admin | Editor, theme settings, queue-aware dashboard at `/admin` |
-| Reader | Public landing + `/posts` + `/posts/[slug]` |
-| Publishing | Draft / schedule / publish through file-backed repository |
-| Sync | Disk queue + worker commit/push pipeline |
-| SEO | `feed.xml`, `sitemap.xml`, `robots.txt` |
-| Extensibility | Adapter registry (`local-mdx`, `git-target`) |
-
-## 60-Second Start
+### Docker (recommended)
 
 ```bash
-bun install
+git clone https://github.com/askysh/briter.git
+cd briter
+docker compose up -d
+```
+
+Open http://localhost:3075, complete the setup wizard, and start writing.
+
+### CLI
+
+```bash
+bunx create-briter-app my-blog
+cd my-blog
 bun run dev
 ```
 
-Open:
+### One-click deploy
 
-- `http://localhost:3075/setup` (first boot)
-- `http://localhost:3075/admin` (after login)
-- `http://localhost:3075/posts` (public reader)
+<!-- TODO: Add deploy buttons after platform configs are tested -->
+Deploy to Railway · Deploy to Render · Deploy to Fly.io
 
-In another terminal:
+## What you get
 
-```bash
-bun run worker
-```
+- **Setup wizard** — site name, password, done. No config files to edit.
+- **Two-pane editor** — Markdown on the left, live preview on the right. Autosave, scroll-sync, paste-to-upload images.
+- **Built-in public reader** — your blog renders out of the box with RSS, sitemap, and SEO metadata. Or use an adapter to push content to your existing site.
+- **Image pipeline** — drag-and-drop upload with automatic AVIF/WebP variants, EXIF stripping, and storage budget.
+- **Git-backed** — every publish is a git commit. Full history, full portability.
+- **Docker or bare metal** — `docker compose up` or `bun run dev`. Your choice.
+- **Single user, single instance** — no team features, no user management. Just you and your words.
 
-## Install Modes
+## Docs
 
-### 1. Local
+[Getting started](docs/getting-started.mdx) · [Setup wizard](docs/setup-wizard.mdx) · [Writing & publishing](docs/editor.mdx) · [Adapters](docs/adapters.mdx) · [Docker deployment](docs/docker.mdx) · [Security](docs/security.mdx) · [Architecture](docs/architecture.mdx)
 
-```bash
-bun install
-bun run dev
-```
+## Built with
 
-### 2. Docker
+Next.js 16 · Bun · Tailwind 4 · MDX · Sharp
 
-```bash
-docker compose up --build
-```
+## Contributing
 
-### 3. Scaffolder
+See [CONTRIBUTING.md](CONTRIBUTING.md). Read [CONSTITUTION.md](CONSTITUTION.md) first — it defines what Briter is and what it isn't.
 
-```bash
-bun run build:template
-bunx create-briter-app my-blog --with-docker --adapter=local-mdx
-```
+## License
 
-## Architecture Snapshot
-
-```text
-Writer UI  --->  /api/publish  --->  FileContentRepository  --->  content/*.mdx
-    |                    |                    |
-    |                    v                    v
-    |               DiskJobQueue  --->  worker/index.ts  --->  git commit/push
-    |
-    +-- /api/uploads ---> sharp pipeline ---> storage/uploads/*
-```
-
-## Scripts
-
-```bash
-bun run dev
-bun run build
-bun run test
-bun run lint
-bun run worker
-bun run worker:once
-bun run build:template
-```
-
-## Project Map
-
-```text
-app/        routes + APIs
-components/ UI
-lib/        auth, config, adapters, queue, uploads, worker internals
-worker/     runtime worker entry
-docs/       markdown docs rendered at /docs
-packages/   create-briter-app workspace package
-```
-
-## Security Notes
-
-- Secrets are file-backed under `storage/secrets.json`.
-- Session cookies are `httpOnly`.
-- Sensitive admin APIs enforce authenticated session checks.
-- Upload path guards prevent traversal and unsafe extensions.
-
-## Release Notes
-
-`CHANGELOG.md` tracks release deltas.  
-`release.yml` is scaffolded for tag-driven publishing flows.
-
----
-
-If writing is your product loop, Briter is your control plane.
+MIT
