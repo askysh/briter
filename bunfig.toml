@@ -1,0 +1,4 @@
+[test]
+coverage = true
+coverageThreshold = { line = 60 }
+pathIgnorePatterns = ["e2e/**"]
