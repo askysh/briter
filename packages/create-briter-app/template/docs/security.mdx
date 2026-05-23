@@ -1,0 +1,60 @@
+---
+title: "Security"
+description: "Auth model, secrets storage, TOTP, session handling, and responsible disclosure."
+order: 8
+category: "operations"
+---
+
+# Security
+
+Briter is a single-user application. Its security model is designed for one trusted operator, not for multi-tenant adversarial environments.
+
+## Authentication
+
+**Password** — bcrypt-hashed with a work factor of 12. The plain-text password is never written to disk or logged.
+
+**Session** — an HTTP-only, Secure, SameSite=Strict cookie signed with a per-instance secret stored in `storage/secrets.json`. Sessions do not expire by default; logging out clears the cookie.
+
+**TOTP** — optional 6-digit TOTP (RFC 6238). When enabled, the login form shows a TOTP field after the password. The TOTP secret is stored in `storage/secrets.json`.
+
+**Rate limiting** — five failed login attempts per 15-minute window. The counter resets on successful login.
+
+## Secrets storage
+
+Two files under `storage/`:
+
+| File | Contents | Permissions |
+|---|---|---|
+| `config.json` | Site name, adapter settings, public config | 644 (readable) |
+| `secrets.json` | bcrypt hash, TOTP secret, session secret | 600 (owner-only) |
+
+`secrets.json` is created with `0600` permissions on POSIX systems. On non-POSIX environments (e.g. Docker on Windows), ensure the volume is not world-readable.
+
+`storage/` is gitignored. Never commit it.
+
+## Middleware and route protection
+
+Next.js middleware runs at the edge and checks for a valid session cookie on all non-public routes. Public routes (reader, RSS, sitemap, health check) pass through without authentication.
+
+The cookie check at the edge is a presence check only. Full session verification happens in each route handler via `requireAdmin()`. This is an intentional two-stage model: the edge check is fast (no I/O), the handler check is authoritative.
+
+## Image uploads
+
+- Magic-byte inspection rejects files that don't match supported image formats
+- Filenames are sanitized and never passed to shell commands
+- EXIF metadata is stripped unconditionally (including GPS)
+- Uploaded files are served through a Next.js route handler, not directly from the filesystem
+
+## Content Security Policy
+
+A restrictive CSP is set in `next.config.ts`. It allows scripts and styles only from the same origin and explicitly forbids inline scripts. Adjust it in `next.config.ts` if your theme requires a CDN.
+
+## Responsible disclosure
+
+Found a vulnerability? Email the maintainer at the address in `package.json`. Please do not open a public GitHub issue for security reports. Allow 90 days for a fix before public disclosure.
+
+## What Briter does not protect against
+
+- **Compromised server** — if the server is compromised, `secrets.json` is readable by the attacker. This is the same threat model as any self-hosted application.
+- **Brute force over Tor/VPN** — the rate limiter operates per-IP. Rotate-IP attackers can bypass it. Add a firewall rule or fail2ban at the infrastructure level.
+- **Multi-user isolation** — Briter is single-user. Do not grant multiple people access to the admin surface.

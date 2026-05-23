@@ -1,0 +1,55 @@
+---
+title: "Getting Started"
+description: "Install Briter and write your first post in under five minutes."
+order: 1
+category: "basics"
+---
+
+# Getting Started
+
+Briter is a self-hosted blog editor. You install it, point a domain at it, and write. Your posts are Markdown files backed by git. No database, no vendor lock-in.
+
+## Choose an install path
+
+### Docker (recommended for production)
+
+```bash
+git clone https://github.com/askysh/briter.git
+cd briter
+docker compose up -d
+```
+
+Open http://localhost:3075. The setup wizard walks you through the rest.
+
+### CLI scaffold (recommended for development)
+
+```bash
+bunx create-briter-app my-blog
+cd my-blog
+bun run dev
+```
+
+Open http://localhost:3075.
+
+## First boot
+
+When Briter has no configuration, it redirects every request to `/setup`. Complete the wizard once — it takes under a minute — and you're writing.
+
+**The wizard collects:**
+- Site name, description, and author
+- Admin password (bcrypt-hashed and stored locally — never transmitted)
+- Optional TOTP two-factor authentication
+- Adapter choice: built-in reader or push to an external site
+
+After completing setup, log in at `/login` and start writing at `/write/new`.
+
+## What you need
+
+- **Docker path:** Docker and Docker Compose. Nothing else.
+- **CLI path:** [Bun](https://bun.sh) 1.3 or later. Node.js is not required.
+
+## Next steps
+
+- [Setup wizard in depth](setup-wizard) — all wizard options explained
+- [Writing & publishing](editor) — editor features, autosave, preview tokens
+- [Docker deployment](docker) — production configuration, volumes, worker

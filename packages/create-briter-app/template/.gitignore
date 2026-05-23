@@ -8,3 +8,5 @@
 .env*
 *.tsbuildinfo
 next-env.d.ts
+HANDOFF-M0-M6-2026-05-22.html
+/test-results

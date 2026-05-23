@@ -1,127 +1,79 @@
 # Foundation Milestone Handoff
 
-**Branch:** `foundation/stabilize-and-docs`
-**Milestone:** Foundation Stabilization and Docs
-**Status:** Complete. All required artifacts are present, lint/test/build pass, and the branch is clean as of the handoff commit.
+**Branch:** `foundation/stabilize-and-docs`  
+**Milestone:** Foundation Stabilization and Docs  
+**Status:** Complete after verification and follow-up fixes on 2026-05-23. No PR was opened and no tag was pushed.
 
 ---
 
-## What This Milestone Delivered
+## Verified Ground Truth
 
-### Stabilization (Sections 1–2 of execution plan)
-- Lint zeroed: `bun run lint` exits 0 with no warnings or errors. `reportUnusedDisableDirectives` is set to `"off"` in `eslint.config.mjs` to suppress false positives from third-party disable comments.
-- Unit tests: 101 tests pass across 16 files, 0 failures. Coverage thresholds were added per plan.
-- Two minor test fixes committed in the final round: unused `mock` import removed from `lib/auth/auth.test.ts`, void assertion corrected in `lib/uploads/image-pipeline.test.ts`.
-
-### Constitution and Community Docs (Section 3)
-- `CONSTITUTION.md` — project values, design philosophy, and contribution principles (7 213 bytes).
-- `README.md` — rewritten for public-facing clarity.
-- `ROADMAP.md` — milestone roadmap linked from README.
-- `CONTRIBUTING.md` — contributor guide covering setup, PR flow, and conventions.
-- `CODE_OF_CONDUCT.md` — Contributor Covenant v2.1, canonical source; enforcement contact is `akash@akashmishra.com`.
-- `LICENSE` — MIT; copyright updated from "askysh" to "Akash Mishra".
-- `CHANGELOG.md` — v0.1.0 entry documenting initial public scaffold release.
-
-### Documentation (Section 4)
-- Ten `.mdx` files created under `docs/`: `getting-started`, `setup-wizard`, `editor`, `cli`, `images`, `adapters`, `docker`, `architecture`, `security`, `roadmap`.
-- Old draft `.md` files (`docs/architecture.md`, `docs/local-development.md`, `docs/product-philosophy.md`, `docs/v1-out-of-scope.md`, `docs/v1-roadmap.md`) deleted; replaced by the `.mdx` counterparts.
-- `lib/docs/docs-loader.ts` — server-side MDX loader that reads from `docs/*.mdx` and exposes typed doc metadata.
-- `app/docs/page.tsx` and `app/docs/[slug]/page.tsx` — updated to consume the loader and render docs in the app.
-
-### Contribution Infrastructure (Section 5)
-- `.github/ISSUE_TEMPLATE/bug-report.yml`
-- `.github/ISSUE_TEMPLATE/feature-request.yml`
-- `.github/ISSUE_TEMPLATE/integration-proposal.yml`
-- `.github/pull_request_template.md`
-
-### Release Plumbing (Section 6)
-- `.github/workflows/release.yml` — triggered on `v*` tags; runs `bun install`, `bun run test`, `bun run build:template`; publish steps are stubbed for npm and GHCR.
-- `package.json` version set to `0.1.0`.
-
-### Architecture Decision Record (Section 7)
-- `docs/decisions/001-middleware-proxy.md` — documents the decision to keep `middleware.ts` for auth gating rather than migrating to Next.js instrumentation hooks.
-
-### Playwright E2E Smoke Test (Section 8)
-- `e2e/critical-path.spec.ts` — critical-path smoke test covering login, post creation, and public reader flow.
+- The working branch is `foundation/stabilize-and-docs`.
+- `git log --oneline main..foundation/stabilize-and-docs` is linear. The live history contains one `docs: add ROADMAP.md` commit (`006d2e3`); the earlier duplicate ROADMAP claim is not present in the current branch history.
+- The prior untracked `HANDOFF-M0-M6-2026-05-22.html` artifact is now ignored in `.gitignore`.
+- Every artifact in the prior file-existence table exists:
+  - `CONSTITUTION.md`, `README.md`, `ROADMAP.md`, `CONTRIBUTING.md`, `CODE_OF_CONDUCT.md`, `LICENSE`, `CHANGELOG.md`
+  - 10 root docs MDX files under `docs/*.mdx`
+  - `lib/docs/docs-loader.ts`, `app/docs/page.tsx`, `app/docs/[slug]/page.tsx`
+  - issue templates, PR template, release workflow, middleware ADR, E2E smoke test, and package version `0.1.0`
+- `EXECUTION-PLAN.md` does not exist at the repository root. The execution plan used for verification is `briter-v1-ship-it-as-a-standalone-installable-app.md`.
 
 ---
 
 ## Verification Evidence
 
 | Check | Result |
-|-------|--------|
-| `bun run lint` | exit 0, 0 warnings |
-| `bun run test` | exit 0, 101 pass, 0 fail, 16 files, 1.67 s |
-| `bun run build` | exit 0, all routes compiled |
-| Tree state after handoff commit | clean (one untracked `HANDOFF-M0-M6-2026-05-22.html` — prior session artifact, not part of the repo) |
+| --- | --- |
+| `bun run lint` | exit 0 |
+| `bun run test` | exit 0, 162 pass, 0 fail, 24 files |
+| `bun run build` | exit 0; routes compiled. Existing Next.js middleware deprecation warning remains. |
+| `bun run build:template` | exit 0; regenerated `packages/create-briter-app/template` |
+| Release workflow YAML parse | exit 0 via Ruby `YAML.load_file` |
+| `bun run test:e2e` | exit 0, 5 passed in 4.9s against a live dev server |
 
-### File Existence Table
-
-| Artifact | Path | Present |
-|----------|------|---------|
-| Constitution | `CONSTITUTION.md` | yes |
-| README | `README.md` | yes |
-| Roadmap | `ROADMAP.md` | yes |
-| Contributing | `CONTRIBUTING.md` | yes |
-| Code of Conduct | `CODE_OF_CONDUCT.md` | yes |
-| License | `LICENSE` | yes |
-| Changelog | `CHANGELOG.md` | yes |
-| Docs (10 files) | `docs/*.mdx` | yes |
-| Docs loader | `lib/docs/docs-loader.ts` | yes |
-| Docs index page | `app/docs/page.tsx` | yes |
-| Docs slug page | `app/docs/[slug]/page.tsx` | yes |
-| Issue template: bug | `.github/ISSUE_TEMPLATE/bug-report.yml` | yes |
-| Issue template: feature | `.github/ISSUE_TEMPLATE/feature-request.yml` | yes |
-| Issue template: integration | `.github/ISSUE_TEMPLATE/integration-proposal.yml` | yes |
-| PR template | `.github/pull_request_template.md` | yes |
-| Release workflow | `.github/workflows/release.yml` | yes |
-| Middleware ADR | `docs/decisions/001-middleware-proxy.md` | yes |
-| E2E smoke test | `e2e/critical-path.spec.ts` | yes |
-| Package version | `package.json` → `"version": "0.1.0"` | yes |
+The Playwright run used temporary fresh `storage/` and `content/` folders, then restored the local runtime folders afterward. The dev server emitted React dev-mode CSP `eval()` warnings and the existing Next middleware deprecation warning; these did not fail the run.
 
 ---
 
-## Commit History (branch tip → divergence from main)
+## Completed Follow-Up Work
 
-```
-fe4ebe7 docs: add contributing guide, 10 mdx docs, docs-loader, and app/docs pages
-5f6f9ec chore: add CODE_OF_CONDUCT, issue templates, PR template; fix lint
-8b5126b chore: merge main (dependabot bump) into foundation branch
-006d2e3 docs: add ROADMAP.md
-4555afa docs: rewrite README.md
-6475345 docs: add CONSTITUTION.md
-a908c40 test: add playwright smoke test for critical path
-5858609 test: add missing unit tests and coverage threshold
-6ce28a2 docs: add middleware proxy ADR
-acdfed8 fix: resolve all lint warnings to zero
-```
-
-Note: two early commits show `docs: add ROADMAP.md` twice (006d2e3 and 17d485b in earlier listing); the duplicate was a resume-cycle artifact and the final log is linear.
+- Replaced the placeholder release workflow with real publish steps:
+  - `bun publish --access public` from `packages/create-briter-app`, using `secrets.NPM_TOKEN`
+  - GHCR login with `secrets.GITHUB_TOKEN`
+  - Docker build and push to `ghcr.io/${{ github.repository }}:latest` and `ghcr.io/${{ github.repository }}:${{ github.ref_name }}`
+- Added workflow permissions for `contents: read` and `packages: write`.
+- Regenerated the CLI template snapshot so publish-time template contents match the current scaffold, docs, tests, and security fixes.
+- Fixed first-boot routing discovered by Playwright: `/admin` redirects to `/login`, and `/login` now server-redirects unconfigured instances to `/setup`.
+- Added `/test-results` to `.gitignore` for Playwright artifacts.
 
 ---
 
-## Decisions Made
+## Security Review
 
-| Decision | Reasoning |
-|----------|-----------|
-| `reportUnusedDisableDirectives: "off"` in ESLint config | Third-party packages ship with their own disable comments that ESLint 9 flags as unused; turning off the rule is the least-invasive way to keep lint green without touching vendored types. |
-| CoC enforcement contact: `akash@akashmishra.com` | Project maintainer's public email; substituted into the Contributor Covenant v2.1 placeholder as required by the spec. |
-| Middleware ADR outcome: keep `middleware.ts` | Next.js 16's `instrumentation.ts` is an observability hook, not an auth hook. No stable alternative exists; keeping `middleware.ts` is the documented best practice. |
-| Old `docs/*.md` files deleted | The `.mdx` files supersede them entirely; keeping both would cause confusion about which is authoritative. |
-| `HANDOFF-M0-M6-2026-05-22.html` left untracked | Prior-session artifact; not a repo deliverable. Excluded from the commit. |
+Reviewed auth/session handling, bcrypt/TOTP setup, file uploads, upload serving, git-sync worker path staging, preview-token HMAC, markdown/docs rendering, CSP/security headers, and secret storage.
+
+### Fixed
+
+- **Medium: git-sync worker path traversal.** `lib/worker/path-validator.ts` previously accepted adapter-allowed prefixes such as `content/../scripts/deploy.sh`. It now rejects absolute paths, backslashes, empty segments, `.`, and `..` before applying adapter allowlists. Regression coverage added in `lib/worker/path-validator.test.ts`.
+- **Medium: session tokens had no server-side expiry enforcement.** `lib/auth/session.ts` now rejects signed session tokens older than seven days, matching the cookie lifetime. Regression coverage added in `lib/auth/auth.test.ts`.
+
+### Reviewed, No Code Change
+
+- Markdown rendering uses `remark-rehype` without raw HTML support, so post and docs HTML insertion does not render arbitrary raw HTML from Markdown by default.
+- Upload serving validates hash-shaped image filenames with `isSafeUploadPath` and uses `basename` before reading from `env.uploadRoot`.
+- Preview tokens use HMAC-SHA256, slug binding, expiry checks, and timing-safe signature comparison.
+- Secrets are stored in `storage/secrets.json` with chmod `0600` on POSIX and are excluded by `storage/.gitignore`.
+
+### Flagged For Human Decision
+
+- State-changing API routes rely on the session cookie's `SameSite=Lax` posture and do not implement explicit CSRF origin/token checks. This may be acceptable for a single-user self-hosted app, but should be revisited before wider hosted or multi-user deployment.
+- `middleware.ts` remains in place with a documented ADR, but Next.js 16 emits a deprecation warning recommending the newer proxy convention. This is not a security issue, but it is a future maintenance item.
 
 ---
 
-## Known Gaps / Not Done
+## Not Done
 
-- **No PR opened yet.** The branch is ready but has not been submitted for review or merged to `main`.
-- **v0.1.0 tag not pushed.** Tag creation and push are deferred until the PR is merged; the release workflow is wired but untriggered.
-- **E2E tests not run in CI.** `bun run test:e2e` requires a running dev server; the Playwright suite (`e2e/critical-path.spec.ts`) exists and is syntactically valid but has not been executed against a live instance.
-- **Publish steps in `release.yml` are stubbed.** The `echo "Publish steps for npm and GHCR go here."` line is a placeholder; actual npm publish and GHCR image push logic is not implemented.
-- **M7, M8, and product-expansion phases not started.** Explicitly deferred per plan.
-
----
-
-## Next Milestone
-
-The next milestone is **M7 — Personal-Site Dogfood Migration**: migrate a real personal blog onto Briter and use it in daily writing to surface friction before any public launch. This milestone is described in [`ROADMAP.md`](ROADMAP.md) and [`docs/roadmap.mdx`](docs/roadmap.mdx). It involves standing up an instance against a live Git repository, running the full write → publish flow end-to-end, and filing issues against anything that breaks in real use. M7 should be started from `main` after this foundation branch is merged, to ensure the migration work builds on a verified baseline.
+- No PR opened.
+- No `v0.1.0` tag created or pushed.
+- The release workflow was validated syntactically but not triggered.
+- M7 dogfood migration and product-expansion work were not started.

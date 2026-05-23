@@ -1,0 +1,72 @@
+---
+title: "Setup Wizard"
+description: "What the setup wizard collects, what it writes, and how to recover if things go wrong."
+order: 2
+category: "basics"
+---
+
+# Setup Wizard
+
+The setup wizard runs once on first boot. It collects everything Briter needs to operate and writes two files: `storage/config.json` (safe to read) and `storage/secrets.json` (chmod 600, never logged).
+
+## Steps
+
+### 1. Site identity
+
+- **Site name** — shown in the public reader header and RSS feed title
+- **Description** — used in `<meta name="description">` and the RSS feed description
+- **Author name** — rendered on post pages and in RSS `<author>`
+- **Base URL** — full URL including protocol (e.g. `https://myblog.com`). Used for canonical links, OpenGraph, and the RSS `<link>`.
+
+### 2. Admin password
+
+Enter a password. Briter hashes it with bcrypt and stores the hash in `storage/secrets.json`. The plain-text password is never written anywhere.
+
+Password requirements: 12 characters minimum.
+
+### 3. TOTP (optional)
+
+Enable two-factor authentication via TOTP (Google Authenticator, 1Password, Authy, etc.).
+
+- Briter generates a TOTP secret and displays a QR code.
+- Scan the QR code with your authenticator app.
+- Enter the 6-digit code to confirm the secret was saved correctly.
+
+TOTP is off by default. You can skip this step and enable it later via Settings.
+
+### 4. Adapter
+
+Choose how Briter publishes content:
+
+- **Built-in reader** — Briter serves its own public blog at `/posts`. Your readers come to your Briter instance.
+- **External site (git-target)** — Briter writes posts into a separate git repository (a sibling Next.js, Astro, or Hugo site). `/posts` redirects to your external site's URL.
+
+For most first installs, pick **Built-in reader**.
+
+### 5. Git settings (external site only)
+
+If you chose the git-target adapter:
+
+- **Worktree path** — absolute path to the external site repo on the same filesystem
+- **Content subpath** — relative path for post files (e.g. `content/notes`)
+- **Upload subpath** — relative path for uploaded images (e.g. `public/uploads/notes`)
+- **Frontmatter preset** — `next-mdx`, `astro`, or `hugo` (controls field names and extension)
+- **Published URL template** — e.g. `https://mysite.com/notes/{slug}`
+- **Revalidate webhook** (optional) — URL Briter POSTs to after each successful push
+
+## What gets written
+
+After completing the wizard:
+
+- `storage/config.json` — site identity, adapter settings, public configuration
+- `storage/secrets.json` — bcrypt hash, TOTP secret (if set), session secret
+
+The wizard endpoint (`/api/setup`) is a no-op after `configured: true` is set.
+
+## Recovery
+
+**Forgot password:** Run `bun run scripts/reset-admin.mjs` from the Briter directory. Enter a new password at the prompt.
+
+**Reset everything:** Delete `storage/config.json` and `storage/secrets.json`, then restart. Briter returns to first-boot state.
+
+**Lost TOTP device:** Reset everything (above). TOTP secrets cannot be recovered without the seed.

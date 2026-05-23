@@ -1,0 +1,45 @@
+---
+title: "Images"
+description: "Upload pipeline, AVIF/WebP variants, EXIF stripping, and storage budget."
+order: 4
+category: "writing"
+---
+
+# Images
+
+Briter processes every uploaded image through a pipeline before storing it. The goal: small files, no privacy leaks, responsive-ready variants.
+
+## Upload flow
+
+1. Paste or drag an image onto the editor.
+2. Briter validates the file using magic-byte inspection (not just MIME type).
+3. The image is processed: EXIF stripped, resized into variants, encoded as AVIF and WebP.
+4. All variants are stored under `storage/uploads/posts/<slug>/`.
+5. A manifest JSON records variant paths and dimensions.
+6. The editor inserts a Markdown image tag pointing to the 800px WebP variant.
+
+## Variants
+
+Each upload produces variants at 400, 800, 1200, and 1600 pixels wide, in both AVIF and WebP format. The original is not stored. Use `<picture>` or a Next.js `<Image>` component in your theme to serve the right variant.
+
+Dimension limits: 8000px on either axis, 24 megapixels total. Images exceeding these are rejected.
+
+## EXIF stripping
+
+All EXIF metadata is removed before saving, including GPS coordinates, camera make/model, and timestamps. This happens unconditionally — there is no opt-out.
+
+## Storage budget
+
+You can set a storage cap in Settings. When total upload size reaches 95% of the cap, Briter rejects new uploads with an `UploadLimitError` and shows a warning in the editor.
+
+Check current usage on the dashboard — a storage bar shows used vs. cap.
+
+To remove old uploads, delete the variant files from `storage/uploads/` and the corresponding manifest. Briter does not yet have a media library manager (planned for v1.1).
+
+## Supported formats
+
+Input: JPEG, PNG, WebP, AVIF, GIF (GIFs are converted to static).
+
+Output always: AVIF + WebP variants.
+
+Unsupported formats (SVG, TIFF, BMP, etc.) are rejected. Upload them as file attachments through the git-target adapter's upload subpath if needed.

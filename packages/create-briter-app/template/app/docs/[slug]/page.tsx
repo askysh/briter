@@ -1,19 +1,9 @@
 export const dynamic = "force-dynamic";
 
-import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { notFound } from "next/navigation";
 
-import { createAppServices } from "@/lib/app/services";
-import { renderMarkdownPreview } from "@/lib/preview/markdown-preview";
-
-const DOC_FILE_BY_SLUG: Record<string, string> = {
-  architecture: "architecture.md",
-  "local-development": "local-development.md",
-  "product-philosophy": "product-philosophy.md",
-  "v1-out-of-scope": "v1-out-of-scope.md",
-  "v1-roadmap": "v1-roadmap.md",
-};
+import { loadDoc, loadAllDocs } from "@/lib/docs/docs-loader";
 
 export default async function DocsPage({
   params,
@@ -21,30 +11,59 @@ export default async function DocsPage({
   params: Promise<{ slug: string }>;
 }) {
   const { slug } = await params;
-  const fileName = DOC_FILE_BY_SLUG[slug];
+  const docsRoot = join(process.cwd(), "docs");
 
-  if (!fileName) {
+  const [doc, allDocs] = await Promise.all([
+    loadDoc(docsRoot, slug),
+    loadAllDocs(docsRoot),
+  ]);
+
+  if (!doc) {
     notFound();
   }
 
-  const { env } = await createAppServices();
-  const markdown = await readFile(join(env.appRoot, "docs", fileName), "utf8");
-  const preview = await renderMarkdownPreview(markdown);
+  // Content is rendered server-side from our own .mdx source files — safe to use innerHTML
+  const safeHtml = doc.html;
 
   return (
-    <article className="article-shell">
-      <div className="article-header">
-        <p className="tiny">Documentation</p>
-        <h1>{fileName.replace(".md", "").replaceAll("-", " ")}</h1>
-        <p className="page-subtitle">
-          Rendered from <code>{`docs/${fileName}`}</code>
-        </p>
-      </div>
+    <div className="section-stack">
+      <div style={{ display: "flex", gap: "2rem", alignItems: "flex-start" }}>
+        <nav
+          className="panel"
+          style={{ minWidth: "180px", padding: "1rem", flexShrink: 0 }}
+        >
+          <p className="tiny" style={{ marginBottom: "0.75rem" }}>
+            Docs
+          </p>
+          {allDocs.map((d) => (
+            <div key={d.slug} style={{ marginBottom: "0.4rem" }}>
+              <a
+                href={`/docs/${d.slug}`}
+                className={d.slug === slug ? "post-title" : "post-meta"}
+                style={{ display: "block" }}
+              >
+                {d.title}
+              </a>
+            </div>
+          ))}
+        </nav>
 
-      <div
-        className="prose"
-        dangerouslySetInnerHTML={{ __html: preview.html }}
-      />
-    </article>
+        <article className="article-shell" style={{ flex: 1, minWidth: 0 }}>
+          <div className="article-header">
+            <p className="tiny">Documentation</p>
+            <h1>{doc.title}</h1>
+            {doc.description && (
+              <p className="page-subtitle">{doc.description}</p>
+            )}
+          </div>
+
+          <div
+            className="prose"
+            // eslint-disable-next-line react/no-danger
+            dangerouslySetInnerHTML={{ __html: safeHtml }}
+          />
+        </article>
+      </div>
+    </div>
   );
 }

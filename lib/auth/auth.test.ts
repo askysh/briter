@@ -101,4 +101,10 @@ describe("createSessionToken / verifySessionToken", () => {
     expect(await verifySessionToken("")).toBe(false);
     expect(await verifySessionToken("a.b.c")).toBe(false);
   });
+
+  test("an expired token is invalid", async () => {
+    const token = await createSessionToken();
+    const eightDaysFromNow = Date.now() + 8 * 24 * 60 * 60 * 1000;
+    expect(await verifySessionToken(token, eightDaysFromNow)).toBe(false);
+  });
 });

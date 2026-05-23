@@ -11,7 +11,8 @@
     "build": "next build --webpack",
     "start": "node scripts/run-next.mjs start",
     "lint": "eslint .",
-    "test": "bun test",
+    "test": "bun test --path-ignore-patterns 'e2e/**'",
+    "test:e2e": "playwright test",
     "worker": "node scripts/run-git-sync-worker.mjs",
     "worker:once": "BRITER_WORKER_RUN_ONCE=1 node scripts/run-git-sync-worker.mjs",
     "build:template": "node scripts/build-template.mjs",
@@ -33,6 +34,7 @@
     "unified": "^11.0.5"
   },
   "devDependencies": {
+    "@playwright/test": "^1.60.0",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^25",
     "@types/qrcode": "^1.5.6",

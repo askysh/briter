@@ -1,0 +1,57 @@
+---
+title: "Adapters"
+description: "The adapter system: local-mdx (built-in reader) and git-target (push to an external site)."
+order: 5
+category: "publishing"
+---
+
+# Adapters
+
+An adapter tells Briter where content lives and where it goes when published. The adapter is chosen during setup and can be changed in Settings.
+
+## local-mdx (default)
+
+Briter is the blog. Posts live in `content/posts/` and Briter's built-in reader serves them at `/posts/<slug>`. RSS, sitemap, and SEO metadata are generated automatically.
+
+**Use this when:** You want Briter to be your blog. Readers visit your Briter instance.
+
+No additional configuration required.
+
+## git-target
+
+Briter pushes content into a separate git repository — a sibling Next.js, Astro, Hugo, or any static site. Briter's `/posts` redirects to the external site's URL. Briter is the editor; your existing site is the reader.
+
+**Use this when:** You already have a site and want to keep its frontend while gaining Briter's writing experience.
+
+**Configuration:**
+
+| Setting | Description |
+|---|---|
+| Worktree path | Absolute path to the external repo on the same filesystem |
+| Content subpath | Where posts go (e.g. `content/notes`) |
+| Upload subpath | Where images go (e.g. `public/uploads/notes`) |
+| Content extension | `.mdx` or `.md` |
+| Frontmatter preset | `next-mdx`, `astro`, or `hugo` |
+| Published URL template | e.g. `https://mysite.com/notes/{slug}` |
+| Revalidate webhook | Optional: URL to POST after each push (for ISR) |
+
+**Path security:** The git-sync worker validates every file path against the adapter's allowed-path list before staging. Files outside the declared subpaths are never committed.
+
+**Revalidation:** If a revalidate webhook is set, Briter POSTs `{ slug, publishedAt }` after each successful push. Use this to trigger Next.js ISR or a static rebuild.
+
+## Frontmatter presets
+
+| Preset | Fields written |
+|---|---|
+| `next-mdx` | `title`, `publishedAt`, `summary`, `tags`, `draft` |
+| `astro` | `title`, `pubDate`, `description`, `tags`, `draft` |
+| `hugo` | `title`, `date`, `summary`, `tags`, `draft` |
+
+## Switching adapters
+
+Go to Settings → Adapter. Change the adapter and save. Briter rewrites `storage/config.json`. Posts already committed to the old adapter's target are not moved automatically.
+
+## v1 constraints
+
+- The external repo must be on the same filesystem as Briter (or mounted into the same Docker volume). HTTP-based git push via the GitHub API is planned for v1.1.
+- One external repo per Briter instance.

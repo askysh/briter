@@ -1,0 +1,68 @@
+---
+title: "Writing & Publishing"
+description: "The editor, autosave, scroll-sync, preview tokens, and the post lifecycle."
+order: 3
+category: "writing"
+---
+
+# Writing & Publishing
+
+Open `/write/new` to start a post, or click an existing post from the dashboard to edit it.
+
+## The editor
+
+The editor is two panes: Markdown on the left, live preview on the right.
+
+**Keyboard shortcuts:**
+- `Ctrl+S` / `Cmd+S` — save draft immediately
+- Autosave fires 1.5 seconds after you stop typing — no manual save required
+
+**Scroll sync** — scroll the Markdown pane and the preview follows heading-by-heading. Works in both directions.
+
+## Images
+
+Paste an image from the clipboard or drag and drop a file onto the Markdown pane. Briter uploads it immediately and inserts the Markdown at the cursor.
+
+Supported formats: JPEG, PNG, WebP, AVIF, GIF.
+
+See [Images & pipeline](images) for details on variants, EXIF stripping, and storage budget.
+
+## Post status lifecycle
+
+```
+draft → scheduled → published → archived
+```
+
+- **Draft** — saved but not published. Visible only to you (with a session or a preview token).
+- **Scheduled** — has a `publishedAt` date in the future. The worker publishes it at that time.
+- **Published** — live at `/posts/<slug>` (built-in reader) or committed to the external site (git-target adapter).
+- **Archived** — removed from the public listing. File is kept; set `draft: true` to make it unpublish.
+
+## Dashboard filters
+
+The dashboard shows tabs: **Drafts**, **Scheduled**, **Published**, **Failed sync**. Use the search box to filter by title across all tabs.
+
+**Failed sync** shows posts where the git-sync worker hit a permanent error. Click a post to see `lastError` and retry.
+
+## Preview tokens
+
+Click **Share preview** in the editor toolbar. Briter generates a 24-hour shareable link (`/preview/<slug>?token=...`) that lets anyone — even without a login — view the draft.
+
+Preview tokens are HMAC-signed and expire. They do not grant write access.
+
+## Frontmatter
+
+Briter writes frontmatter automatically. You can edit it directly in the Markdown:
+
+```yaml
+---
+title: My Post Title
+summary: A one-line description shown in the post list.
+publishedAt: 2024-03-15
+tags: [writing, tools]
+draft: false
+---
+```
+
+- `publishedAt` in the future → post is scheduled
+- `draft: true` → post is never surfaced publicly regardless of date

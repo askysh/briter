@@ -1,0 +1,88 @@
+---
+title: "Docker"
+description: "Running Briter in production with Docker Compose: services, volumes, and the worker."
+order: 6
+category: "deployment"
+---
+
+# Docker
+
+The recommended way to run Briter in production is Docker Compose. It runs two services from the same image: `web` (the Next.js app) and `worker` (the git-sync worker).
+
+## Quick start
+
+```bash
+git clone https://github.com/askysh/briter.git
+cd briter
+docker compose up -d
+```
+
+Open http://localhost:3075.
+
+## Services
+
+### web
+
+Runs `bun run start` (Next.js standalone server). Handles all HTTP traffic, the editor, image uploads, and the queue writer.
+
+### worker
+
+Runs `bun run worker`. Processes the queue: stages, commits, and pushes content. Restarts automatically on failure.
+
+Both services mount the same volumes so file paths resolve from both sides.
+
+## Volumes
+
+```yaml
+volumes:
+  - ./storage:/app/storage   # config, secrets, queue, uploads
+  - ./content:/app/content   # post files
+```
+
+**Keep `./storage` and `./content` outside the image.** They contain your data. The image is stateless.
+
+For the git-target adapter, also mount the external repo:
+
+```yaml
+volumes:
+  - ./storage:/app/storage
+  - ./content:/app/content
+  - /path/to/your-site:/app/external-site
+  - /root/.ssh:/run/secrets/ssh:ro  # git push credentials
+```
+
+## Environment variables
+
+| Variable | Default | Description |
+|---|---|---|
+| `PORT` | `3075` | HTTP port |
+| `BRITER_APP_ROOT` | `/app` | App root (do not change) |
+| `BRITER_WORKER_DRY_RUN` | `false` | Set `true` to disable git push |
+
+All other configuration is written by the setup wizard into `storage/config.json`.
+
+## Production checklist
+
+- [ ] Set up a reverse proxy (nginx, Caddy) in front of port 3075 with TLS
+- [ ] Mount `storage/` on persistent storage (not a tmpfs)
+- [ ] Add SSH credentials for git push if using the git-target adapter
+- [ ] Set a custom `PORT` if 3075 conflicts with other services
+- [ ] Configure a firewall: only the reverse proxy should reach port 3075
+
+## Updating
+
+```bash
+git pull
+docker compose build
+docker compose up -d
+```
+
+Your `storage/` and `content/` data is preserved across updates.
+
+## Dev compose
+
+For local development with hot reload:
+
+```bash
+docker compose -f compose.dev.yaml up
+```
