@@ -1,0 +1,42 @@
+name: Feature Request
+description: Propose a new feature for Briter
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Before proposing a feature, please read [CONSTITUTION.md](../CONSTITUTION.md). Features that conflict with the constitution — including multi-user, team, or SaaS functionality — will not be accepted regardless of implementation quality.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem does this solve?
+      description: Describe the use case or pain point this feature addresses.
+      placeholder: When I write a post, I have to manually... which is tedious because...
+    validations:
+      required: true
+
+  - type: textarea
+    id: solution
+    attributes:
+      label: Proposed solution
+      description: Describe the feature you'd like. Be as specific as possible.
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: Any other approaches you thought about, and why you prefer the proposed one.
+
+  - type: checkboxes
+    id: constitution
+    attributes:
+      label: Constitution check
+      options:
+        - label: This feature is consistent with CONSTITUTION.md (single-user, self-hosted, local-first).
+          required: true
+        - label: This feature does not require new external service dependencies.
+        - label: I searched existing issues and this has not been proposed before.
+          required: true

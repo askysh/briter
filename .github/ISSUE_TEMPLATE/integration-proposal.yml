@@ -1,0 +1,62 @@
+name: Integration Proposal
+description: Propose a new storage backend, image provider, or external service integration
+labels: ["integration"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Briter integrates with external services for storage and media. New integrations must follow the existing adapter pattern and must not introduce mandatory external dependencies. Read [CONSTITUTION.md](../CONSTITUTION.md) before submitting.
+
+  - type: input
+    id: service
+    attributes:
+      label: Service or backend
+      description: Name of the service or system you want to integrate (e.g. "Backblaze B2", "Cloudinary", "Minio").
+      placeholder: "e.g. Backblaze B2"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: category
+    attributes:
+      label: Integration category
+      options:
+        - Storage backend (file / asset storage)
+        - Image processing / CDN
+        - Content source / CMS
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: motivation
+    attributes:
+      label: Why this integration?
+      description: Explain why this is useful for self-hosted Briter users and what it enables that existing integrations do not.
+    validations:
+      required: true
+
+  - type: textarea
+    id: adapter
+    attributes:
+      label: Adapter design sketch
+      description: |
+        Briefly describe how this would implement the existing adapter interface.
+        Which files would you add or modify? Any new environment variables?
+
+  - type: textarea
+    id: dependencies
+    attributes:
+      label: New dependencies
+      description: List any npm packages this integration would add, and justify each one.
+
+  - type: checkboxes
+    id: checklist
+    attributes:
+      label: Checklist
+      options:
+        - label: This integration is optional — Briter works fully without it.
+          required: true
+        - label: This does not introduce mandatory external service calls on startup.
+          required: true
+        - label: I am willing to write tests and maintain this integration.
