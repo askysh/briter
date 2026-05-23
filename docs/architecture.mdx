@@ -1,0 +1,97 @@
+---
+title: "Architecture"
+description: "How Briter's layers fit together: web app, content storage, adapter, queue, and worker."
+order: 9
+category: "contributing"
+---
+
+# Architecture
+
+Briter is a Next.js 16 application with a Bun runtime. It is split into two processes in production: a web app and a git-sync worker. They share a filesystem but never share a process.
+
+## Layers
+
+### Web app (`app/`, `components/`, `lib/`)
+
+- Owns the editor UI, public reader, dashboard, upload endpoint, and API routes
+- Reads and writes canonical content files via `FileContentRepository`
+- Enqueues git-sync work (writes a JSON file to `storage/queue/`) — never git-pushes directly
+- Serves uploaded assets through a route handler (`/uploads/[...path]`)
+- Two route groups: `(public)` (open) and `(admin)` (session-gated)
+
+### Content storage
+
+- Canonical source: Markdown or MDX under `content/posts/`
+- Frontmatter carries `title`, `summary`, `publishedAt`, `tags`, `draft`
+- Uploaded assets: `storage/uploads/posts/<slug>/`
+- Each upload has a manifest JSON with responsive variant paths and dimensions
+
+### Adapter layer (`lib/adapters/`)
+
+The adapter hides target-site conventions from the editor core:
+
+```
+SiteAdapter (interface)
+├── LocalMdxSiteAdapter   — self-hosted reader
+└── GitTargetSiteAdapter  — push to external repo
+```
+
+The adapter is selected at startup based on `storage/config.json`. New adapters implement `SiteAdapter` and register in `adapter-registry.ts`.
+
+### Queue + worker
+
+- `DiskJobQueue` writes JSON job files to `storage/queue/`
+- The worker process reads job files, validates paths via the adapter's allowlist, stages, commits, and pushes
+- Backoff: 1 minute → 5 minutes → 30 minutes on failure. After three failures, the job is marked `failed`
+- The web app and worker share `storage/` via the filesystem (or a Docker volume)
+
+### Preview pipeline (`lib/preview/`)
+
+A shared unified/remark/rehype pipeline powers:
+- The editor's live preview (client-side, via API route)
+- The public reader's post rendering
+- The in-app docs at `/docs`
+
+The pipeline is decoupled from git and deploy concerns.
+
+## Data flow (publish)
+
+```
+Editor save
+  → FileContentRepository.save()
+  → DiskJobQueue.enqueue({ type: 'git-sync', paths: [...] })
+  → Worker picks up job
+  → PathValidator checks paths against adapter allowlist
+  → git stage, commit, push
+  → (optional) ExternalRevalidate.notify(webhook)
+```
+
+## Config and secrets
+
+```
+storage/
+├── config.json      — site identity, adapter settings (644)
+├── secrets.json     — bcrypt hash, TOTP secret, session secret (600)
+├── queue/           — job files written by web, consumed by worker
+└── uploads/         — image variants and manifests
+```
+
+`RuntimeConfig` loads on startup via `loadRuntimeConfig()`. Changes written by the setup wizard or settings API take effect on next request.
+
+## Key modules
+
+| Module | Purpose |
+|---|---|
+| `lib/config/runtime-config.ts` | Layered config: defaults → env → config.json |
+| `lib/config/secrets.ts` | Read/write secrets.json with 0600 perms |
+| `lib/content/file-content-repository.ts` | Post CRUD backed by the filesystem |
+| `lib/adapters/site-adapter.ts` | Adapter interface and types |
+| `lib/queue/disk-job-queue.ts` | Filesystem-backed job queue |
+| `lib/worker/git-sync-worker.ts` | Git stage/commit/push with path validation |
+| `lib/uploads/image-pipeline.ts` | Variant generation, EXIF strip, budget check |
+| `lib/preview/markdown-preview.ts` | Shared unified/remark/rehype pipeline |
+| `lib/docs/docs-loader.ts` | Loads and renders `/docs/*.mdx` |
+
+## ADR: Middleware proxy
+
+See [docs/decisions/001-middleware-proxy.md](../decisions/001-middleware-proxy) for the rationale behind the edge middleware + handler two-stage auth model.

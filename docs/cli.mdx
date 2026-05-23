@@ -1,0 +1,73 @@
+---
+title: "CLI Scaffolder"
+description: "create-briter-app: scaffold a new Briter instance from the command line."
+order: 7
+category: "deployment"
+---
+
+# CLI Scaffolder
+
+`create-briter-app` scaffolds a new Briter project in a directory of your choice. It copies a template snapshot of the current Briter version and optionally runs `bun install`.
+
+## Usage
+
+```bash
+bunx create-briter-app my-blog
+```
+
+Or with flags:
+
+```bash
+bunx create-briter-app my-blog --with-docker --adapter git-target
+```
+
+## Flags
+
+| Flag | Description |
+|---|---|
+| `--with-docker` | Include `compose.yaml` and `Dockerfile` |
+| `--adapter local-mdx` | Pre-configure the built-in reader adapter (default) |
+| `--adapter git-target` | Pre-configure the git-target adapter |
+
+## What gets created
+
+```
+my-blog/
+├── app/
+├── components/
+├── content/
+├── docs/
+├── lib/
+├── storage/         ← created empty; gitignored
+├── compose.yaml     ← if --with-docker
+├── Dockerfile       ← if --with-docker
+├── package.json
+└── README.md
+```
+
+After scaffolding, `bun install` runs automatically unless `--skip-install` is passed.
+
+## After scaffolding
+
+```bash
+cd my-blog
+bun run dev
+```
+
+Open http://localhost:3075 and complete the setup wizard.
+
+## Updating
+
+The CLI scaffold is a snapshot — it does not auto-update. To update an existing installation:
+
+1. Check the [changelog](roadmap) for breaking changes.
+2. Run `git pull` if you cloned from GitHub, or manually apply changes from the release diff.
+3. Run `bun install` to update dependencies.
+
+## Publishing to npm
+
+`create-briter-app` is published to npm as part of the release workflow. It is installed via `bunx` (no global install needed). Pin a version for reproducibility:
+
+```bash
+bunx create-briter-app@0.1.0 my-blog
+```

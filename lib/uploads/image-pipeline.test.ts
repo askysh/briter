@@ -74,7 +74,7 @@ describe("ImageUploadService.store", () => {
   test("throws UploadLimitError when the buffer alone exceeds the storage limit", async () => {
     const tinyService = new ImageUploadService(uploadRoot, "/uploads", 1); // 1 byte limit
     const file = await makeJpegFile();
-    expect(service.store.bind(tinyService, file)).toThrow;
+    void expect(service.store.bind(tinyService, file)).toThrow;
     await expect(tinyService.store(file)).rejects.toBeInstanceOf(UploadLimitError);
   });
 
