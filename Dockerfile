@@ -1,6 +1,9 @@
 FROM oven/bun:1 AS deps
 WORKDIR /app
 COPY package.json bun.lock ./
+# The bun workspace (packages/*) must be present or the frozen lockfile
+# check fails inside the build context.
+COPY packages ./packages
 RUN bun install --frozen-lockfile
 
 FROM deps AS build
