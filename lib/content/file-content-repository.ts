@@ -14,6 +14,14 @@ import type { PostDocument, PostFrontmatter, PostInput } from "@/lib/content/typ
 
 const SUPPORTED_EXTENSIONS = new Set([".md", ".mdx"]);
 
+function normalizeDateValue(value: unknown): string | undefined {
+  if (typeof value === "string") return value;
+  if (value instanceof Date && !Number.isNaN(value.getTime())) {
+    return value.toISOString().slice(0, 10);
+  }
+  return undefined;
+}
+
 export class FileContentRepository {
   constructor(
     private readonly root: string,
@@ -58,11 +66,22 @@ export class FileContentRepository {
     const normalized = normalizePostInput(input);
     const filePath = join(this.root, `${normalized.slug}${this.defaultExtension}`);
 
+    // Preserve frontmatter keys Briter doesn't manage (e.g. a site's
+    // updatedAt or custom fields) instead of dropping them on rewrite.
+    let extraFrontmatter: Record<string, unknown> = {};
+    try {
+      const existing = matter(await readFile(filePath, "utf8"));
+      extraFrontmatter = existing.data;
+    } catch {
+      // New post: nothing to preserve.
+    }
+
     await mkdir(this.root, { recursive: true });
     await writeFile(
       filePath,
       serializePostFile(
         {
+          ...extraFrontmatter,
           title: normalized.title,
           summary: normalized.summary,
           draft: normalized.draft,
@@ -93,10 +112,8 @@ export class FileContentRepository {
       title: String(frontmatter.title ?? basename(filePath, extname(filePath))),
       summary: String(frontmatter.summary ?? ""),
       draft: Boolean(frontmatter.draft),
-      publishedAt:
-        typeof frontmatter.publishedAt === "string"
-          ? frontmatter.publishedAt
-          : undefined,
+      // YAML parses unquoted dates (publishedAt: 2026-04-18) as Date objects.
+      publishedAt: normalizeDateValue(frontmatter.publishedAt),
       tags: Array.isArray(frontmatter.tags)
         ? frontmatter.tags.map((tag) => String(tag))
         : [],
