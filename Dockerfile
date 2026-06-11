@@ -17,7 +17,8 @@ ENV NODE_ENV=production
 COPY --from=build /app/.next/standalone ./
 COPY --from=build /app/.next/static ./.next/static
 COPY --from=build /app/content ./content
-COPY --from=build /app/storage ./storage
+# storage/ is dockerignored and volume-mounted at runtime; just create it.
+RUN mkdir -p ./storage
 COPY --from=build /app/worker ./worker
 COPY --from=build /app/lib ./lib
 COPY --from=build /app/package.json ./package.json
