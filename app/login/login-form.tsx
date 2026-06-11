@@ -2,14 +2,16 @@
 
 import { FormEvent, useState } from "react";
 
-export function LoginForm() {
+export function LoginForm({ totpEnabled }: { totpEnabled: boolean }) {
   const [password, setPassword] = useState("");
   const [totpCode, setTotpCode] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
 
   async function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError(null);
+    setBusy(true);
     const response = await fetch("/api/login", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -17,6 +19,7 @@ export function LoginForm() {
     });
     const data = (await response.json()) as { ok?: boolean; error?: string };
     if (!response.ok || !data.ok) {
+      setBusy(false);
       setError(data.error ?? "Login failed.");
       return;
     }
@@ -24,11 +27,41 @@ export function LoginForm() {
   }
 
   return (
-    <form className="stack" onSubmit={onSubmit}>
-      <input value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Admin password" type="password" required />
-      <input value={totpCode} onChange={(e) => setTotpCode(e.target.value)} placeholder="TOTP code (if enabled)" />
-      <button type="submit">Sign in</button>
-      {error ? <p>{error}</p> : null}
+    <form className="login-form" onSubmit={onSubmit}>
+      <div className="field">
+        <label htmlFor="password">Password</label>
+        <input
+          id="password"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          placeholder="Admin password"
+          type="password"
+          autoFocus
+          autoComplete="current-password"
+          required
+        />
+      </div>
+
+      {totpEnabled ? (
+        <div className="field">
+          <label htmlFor="totp">Authenticator code</label>
+          <input
+            id="totp"
+            value={totpCode}
+            onChange={(e) => setTotpCode(e.target.value)}
+            placeholder="123456"
+            inputMode="numeric"
+            autoComplete="one-time-code"
+            required
+          />
+        </div>
+      ) : null}
+
+      <button className="button button-primary login-submit" type="submit" disabled={busy}>
+        {busy ? "Signing in…" : "Sign in"}
+      </button>
+
+      {error ? <p className="login-error">{error}</p> : null}
     </form>
   );
 }
