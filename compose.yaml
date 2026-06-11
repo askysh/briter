@@ -1,7 +1,8 @@
 services:
   web:
     build: .
-    command: bun run start
+    # Next standalone server bundled into the image (see Dockerfile CMD).
+    command: bun server.js
     ports:
       - "3075:3075"
     volumes:
@@ -15,7 +16,8 @@ services:
 
   worker:
     build: .
-    command: bun run worker
+    # Invoke via bun: the runtime image has no node binary.
+    command: bun scripts/run-git-sync-worker.mjs
     volumes:
       - ./storage:/app/storage
       - ./content:/app/content

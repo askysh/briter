@@ -21,6 +21,11 @@ COPY --from=build /app/content ./content
 RUN mkdir -p ./storage
 COPY --from=build /app/worker ./worker
 COPY --from=build /app/lib ./lib
+COPY --from=build /app/scripts ./scripts
+COPY --from=build /app/tsconfig.json ./tsconfig.json
 COPY --from=build /app/package.json ./package.json
 EXPOSE 3075
-CMD ["bun", "run", "start"]
+ENV PORT=3075
+# The standalone output bundles its own server; `bun run start` expects a
+# full node_modules and does not exist in this image.
+CMD ["bun", "server.js"]
