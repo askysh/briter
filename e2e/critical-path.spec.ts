@@ -59,8 +59,8 @@ test('create and publish a post', async ({ page }) => {
   // Fill title using id="title"
   await page.locator('#title').fill('Hello from Playwright');
 
-  // Fill body textarea (placeholder text used as selector)
-  await page.getByPlaceholder('Write in Markdown or MDX. Paste screenshots directly.').fill(
+  // Fill body textarea
+  await page.getByLabel('Post body').fill(
     'This post was created by the Playwright smoke test.',
   );
 
@@ -68,9 +68,27 @@ test('create and publish a post', async ({ page }) => {
   await page.getByRole('button', { name: 'Publish' }).click();
 
   // After publish, the status message should update and the URL may change to the slug
-  await expect(
-    page.getByText('Saved. The worker can pick up the queued sync job.'),
-  ).toBeVisible({ timeout: 15000 });
+  await expect(page.getByText('Published. Git sync is queued.')).toBeVisible({
+    timeout: 15000,
+  });
+});
+
+test('editor toolbar inserts markdown', async ({ page }) => {
+  await page.goto('/login');
+  await page.getByPlaceholder('Admin password').fill(ADMIN_PASSWORD);
+  await page.getByRole('button', { name: 'Sign in' }).click();
+  await expect(page).toHaveURL(/\/admin/, { timeout: 10000 });
+
+  await page.goto('/write/new');
+  const body = page.getByLabel('Post body');
+  await body.click();
+
+  await page.getByRole('button', { name: 'Bold' }).click();
+  await expect(body).toHaveValue('**bold text**');
+
+  await body.fill('');
+  await page.getByRole('button', { name: 'Heading 2' }).click();
+  await expect(body).toHaveValue('## ');
 });
 
 test('post appears in public reader', async ({ page }) => {

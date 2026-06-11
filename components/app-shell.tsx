@@ -9,9 +9,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             <Link className="brand-title" href="/">
               Briter
             </Link>
-            <span className="brand-subtitle">
-              Textarea first. Git-backed. Built for the writer&apos;s chair.
-            </span>
+            <span className="brand-subtitle">Write. Publish. Own it.</span>
           </div>
 
           <nav className="shell-nav" aria-label="Primary">

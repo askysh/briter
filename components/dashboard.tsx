@@ -17,12 +17,11 @@ export function Dashboard({
     <div className="section-stack">
       <section className="panel panel-strong hero">
         <div className="section-stack">
-          <p className="tiny">Standalone scaffold</p>
+          <p className="tiny">Dashboard</p>
           <h1>Shorten the distance between thinking and publishing.</h1>
           <p>
-            Briter stays opinionated on purpose: Markdown and MDX stay in your
-            repo, images are part of the core writing loop, and git sync runs
-            behind a worker boundary instead of inside the writing surface.
+            Your posts are plain files under version control. Write here,
+            publish anywhere — the git sync worker handles the rest.
           </p>
           <div className="button-row">
             <Link className="button button-primary" href="/write/new">
