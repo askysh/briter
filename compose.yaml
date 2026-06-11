@@ -9,7 +9,8 @@ services:
       - ./storage:/app/storage
       - ./content:/app/content
     healthcheck:
-      test: ["CMD", "wget", "-qO-", "http://localhost:3075/api/health"]
+      # The oven/bun runtime image ships no wget/curl; probe with bun itself.
+      test: ["CMD", "bun", "-e", "const r = await fetch('http://localhost:3075/api/health'); if (!r.ok) process.exit(1);"]
       interval: 15s
       timeout: 5s
       retries: 5
