@@ -1,0 +1,64 @@
+# Production overrides for briter on the akashmishra.com VPS.
+# Usage: docker compose -f compose.yaml -f compose.prod.yaml up -d --build
+x-briter-env: &briter-env
+  HOSTNAME: 0.0.0.0
+  NODE_ENV: production
+  BRITER_SITE_ADAPTER: git-target
+  BRITER_CONTENT_ROOT: /opt/site-repo/content/notes
+  BRITER_UPLOAD_ROOT: /opt/site-repo/public/uploads/notes
+  BRITER_UPLOAD_ROUTE_BASE: /uploads/notes
+  BRITER_GIT_WORKTREE: /opt/site-repo
+  BRITER_GIT_BRANCH: main
+  BRITER_GIT_REMOTE: origin
+  BRITER_GIT_AUTHOR_NAME: akashmishra-site
+  BRITER_GIT_AUTHOR_EMAIL: site@akashmishra.com
+  BRITER_PUBLIC_BASE_URL: https://write.akashmishra.com
+  BRITER_PUBLISHED_HREF_TEMPLATE: https://akashmishra.com/notes/{slug}
+  # Dry run stays ON until the end-to-end branch test is approved.
+  BRITER_WORKER_DRY_RUN: "1"
+  GIT_CONFIG_COUNT: "1"
+  GIT_CONFIG_KEY_0: safe.directory
+  GIT_CONFIG_VALUE_0: /opt/site-repo
+
+networks:
+  traefik-public:
+    external: true
+
+services:
+  web:
+    restart: unless-stopped
+    user: "1001:1001"
+    security_opt:
+      - "no-new-privileges:true"
+    environment: *briter-env
+    ports: !override []
+    volumes:
+      - ./storage:/app/storage
+      - ./content:/app/content
+      - /opt/personal-site:/opt/site-repo
+    networks:
+      - traefik-public
+      - default
+    labels:
+      - traefik.enable=true
+      - traefik.docker.network=traefik-public
+      - traefik.http.routers.briter.rule=Host(`write.akashmishra.com`)
+      - traefik.http.routers.briter.entrypoints=websecure
+      - traefik.http.routers.briter.tls=true
+      - traefik.http.routers.briter.tls.certresolver=mytlschallenge
+      - traefik.http.services.briter.loadbalancer.server.port=3075
+
+  worker:
+    restart: unless-stopped
+    user: "1001:1001"
+    security_opt:
+      - "no-new-privileges:true"
+    environment:
+      <<: *briter-env
+      GIT_SSH_COMMAND: ssh -i /run/secrets/deploy_key -o StrictHostKeyChecking=yes -o UserKnownHostsFile=/run/secrets/known_hosts
+    volumes:
+      - ./storage:/app/storage
+      - ./content:/app/content
+      - /opt/personal-site:/opt/site-repo
+      - /opt/personal-site/.ssh/deploy_key:/run/secrets/deploy_key:ro
+      - /opt/personal-site/.ssh/known_hosts:/run/secrets/known_hosts:ro
