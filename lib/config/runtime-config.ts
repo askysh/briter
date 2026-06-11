@@ -109,16 +109,25 @@ export async function loadRuntimeConfig(
     publishedHrefTemplate: source.BRITER_PUBLISHED_HREF_TEMPLATE,
   };
 
+  // Spreading raw envConfig would clobber base/file values with `undefined`
+  // for unset env vars (e.g. uploadStorageLimitBytes became NaN downstream).
+  const definedEnvConfig = Object.fromEntries(
+    Object.entries(envConfig).filter(([, value]) => value !== undefined),
+  ) as PartialRuntime;
+
   const merged = {
     ...base,
     ...fileConfig,
-    ...envConfig,
+    ...definedEnvConfig,
     appRoot,
     configured: Boolean(fileConfig.configured),
   };
 
   return {
     ...merged,
+    workerPollIntervalMs: merged.workerPollIntervalMs || base.workerPollIntervalMs,
+    uploadStorageLimitBytes:
+      merged.uploadStorageLimitBytes || base.uploadStorageLimitBytes,
     contentRoot: merged.contentRoot || base.contentRoot,
     uploadRoot: merged.uploadRoot || base.uploadRoot,
     queueRoot: merged.queueRoot || base.queueRoot,

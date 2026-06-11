@@ -1,7 +1,9 @@
 function formatBytes(value: number): string {
+  if (!Number.isFinite(value)) return "—";
   if (value < 1024) return `${value} B`;
   if (value < 1024 * 1024) return `${(value / 1024).toFixed(1)} KB`;
-  return `${(value / (1024 * 1024)).toFixed(1)} MB`;
+  if (value < 1024 * 1024 * 1024) return `${(value / (1024 * 1024)).toFixed(1)} MB`;
+  return `${(value / (1024 * 1024 * 1024)).toFixed(1)} GB`;
 }
 
 export function StorageUsageBar({
@@ -11,25 +13,22 @@ export function StorageUsageBar({
   usedBytes: number;
   capBytes: number;
 }) {
-  const ratio = Math.max(0, Math.min(1, usedBytes / capBytes));
+  const hasCap = Number.isFinite(capBytes) && capBytes > 0;
+  const ratio = hasCap ? Math.max(0, Math.min(1, usedBytes / capBytes)) : 0;
   const percentage = Math.round(ratio * 100);
 
   return (
-    <div className="section-stack" style={{ gap: "0.5rem" }}>
-      <div className="split-note">
-        <strong>Upload storage</strong>
+    <div className="storage-usage">
+      <div className="storage-usage-head">
+        <span className="metric-label">Upload storage</span>
         <span className="tiny">
-          {formatBytes(usedBytes)} / {formatBytes(capBytes)} ({percentage}%)
+          {formatBytes(usedBytes)} / {formatBytes(capBytes)}
         </span>
       </div>
-      <div style={{ height: 10, borderRadius: 999, background: "var(--briter-panel-strong)" }}>
+      <div className="storage-usage-track">
         <div
-          style={{
-            width: `${percentage}%`,
-            height: "100%",
-            borderRadius: 999,
-            background: percentage >= 95 ? "var(--briter-accent-strong)" : "var(--briter-accent)",
-          }}
+          className={`storage-usage-fill${percentage >= 95 ? " storage-usage-fill-warn" : ""}`}
+          style={{ width: `${Math.max(percentage, usedBytes > 0 ? 2 : 0)}%` }}
         />
       </div>
     </div>

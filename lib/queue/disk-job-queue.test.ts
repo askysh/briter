@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, test } from "bun:test";
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 
@@ -38,6 +38,39 @@ describe("DiskJobQueue", () => {
     const jobs = await queue.listAll();
 
     expect(jobs.map((job) => job.id)).toEqual([first.id, second.id]);
+  });
+
+  test("tolerates legacy job files without scheduledFor and malformed files", async () => {
+    tempRoot = await mkdtemp(join(tmpdir(), "briter-queue-"));
+    const queue = new DiskJobQueue(tempRoot);
+
+    await writeFile(
+      join(tempRoot, "legacy.json"),
+      JSON.stringify({
+        id: "legacy",
+        kind: "git-sync",
+        paths: ["content/posts/test.mdx"],
+        status: "queued",
+        attempts: 0,
+        createdAt: "2026-05-27T12:18:11.176802Z",
+      }),
+      "utf8",
+    );
+    await writeFile(join(tempRoot, "broken.json"), "not json", "utf8");
+
+    const recent = await queue.enqueue({
+      kind: "git-sync",
+      postSlug: "recent-post",
+      paths: ["content/posts/recent-post.mdx"],
+      commitMessage: "recent",
+      scheduledFor: "2026-06-01T00:00:00.000Z",
+    });
+
+    const jobs = await queue.listAll();
+    expect(jobs.map((job) => job.id)).toEqual(["legacy", recent.id]);
+
+    const due = await queue.listDue(new Date("2026-06-02T00:00:00.000Z"));
+    expect(due.map((job) => job.id)).toEqual(["legacy", recent.id]);
   });
 
   test("bumps attempts and pushes the job into the future when marked failed", async () => {
