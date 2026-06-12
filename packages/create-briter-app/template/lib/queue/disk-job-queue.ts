@@ -7,6 +7,14 @@ import {
   type GitSyncJob,
 } from "@/lib/queue/job";
 
+/**
+ * Jobs written by older Briter versions may lack scheduledFor; fall back to
+ * createdAt so legacy queue files sort and run instead of crashing the queue.
+ */
+function scheduleKeyFor(job: GitSyncJob): string {
+  return job.scheduledFor ?? job.createdAt ?? "1970-01-01T00:00:00.000Z";
+}
+
 export class DiskJobQueue {
   constructor(private readonly root: string) {}
 
@@ -22,21 +30,30 @@ export class DiskJobQueue {
     const jobs = await Promise.all(
       fileNames
         .filter((fileName) => fileName.endsWith(".json"))
-        .map(async (fileName) =>
-          JSON.parse(await readFile(join(this.root, fileName), "utf8")) as GitSyncJob,
-        ),
+        .map(async (fileName) => {
+          try {
+            return JSON.parse(
+              await readFile(join(this.root, fileName), "utf8"),
+            ) as GitSyncJob;
+          } catch {
+            // Skip unreadable or malformed job files instead of failing the queue.
+            return null;
+          }
+        }),
     );
 
-    return jobs.sort((left, right) =>
-      left.scheduledFor.localeCompare(right.scheduledFor),
-    );
+    return jobs
+      .filter((job): job is GitSyncJob => job !== null)
+      .sort((left, right) =>
+        scheduleKeyFor(left).localeCompare(scheduleKeyFor(right)),
+      );
   }
 
   async listDue(now = new Date()) {
     const jobs = await this.listAll();
 
     return jobs.filter(
-      (job) => new Date(job.scheduledFor).getTime() <= now.getTime(),
+      (job) => new Date(scheduleKeyFor(job)).getTime() <= now.getTime(),
     );
   }
 

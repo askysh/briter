@@ -1,9 +1,24 @@
 "use client";
 
-import { startTransition, useCallback, useDeferredValue, useEffect, useRef, useState } from "react";
+import {
+  startTransition,
+  useCallback,
+  useDeferredValue,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 import { useRouter } from "next/navigation";
 
 import { slugify } from "@/lib/content/post-document";
+import {
+  COMMANDS,
+  applyCommand,
+  continueListOnEnter,
+  insertLink,
+  type CommandResult,
+} from "@/lib/editor/markdown-commands";
+import { EditorToolbar, type ToolbarAction } from "@/components/editor-toolbar";
 
 type EditablePost = {
   slug: string;
@@ -21,11 +36,15 @@ type PreviewState = {
   readingTimeMinutes: number;
 };
 
+type ViewMode = "write" | "split" | "preview";
+
 const EMPTY_PREVIEW: PreviewState = {
   html: "<p>Start typing to see the live preview.</p>",
   wordCount: 0,
   readingTimeMinutes: 1,
 };
+
+const VIEW_MODE_KEY = "briter:editor-view";
 
 function snapshot(input: {
   slug: string;
@@ -41,30 +60,40 @@ function snapshot(input: {
 export function PostEditor({ initialPost }: { initialPost: EditablePost }) {
   const router = useRouter();
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [title, setTitle] = useState(initialPost.title);
   const [slug, setSlug] = useState(initialPost.slug);
   const [summary, setSummary] = useState(initialPost.summary);
   const [body, setBody] = useState(initialPost.body);
   const [tags, setTags] = useState(initialPost.tags.join(", "));
   const [publishedAt, setPublishedAt] = useState(initialPost.publishedAt ?? "");
-  const [message, setMessage] = useState("Saved files will enqueue a git sync job.");
+  const [message, setMessage] = useState("");
   const [preview, setPreview] = useState<PreviewState>(EMPTY_PREVIEW);
   const [busyAction, setBusyAction] = useState<string | null>(null);
   const [shareUrl, setShareUrl] = useState<string>("");
-  const [isAutosaving, setIsAutosaving] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [viewMode, setViewMode] = useState<ViewMode>("split");
   const previewWrapRef = useRef<HTMLDivElement>(null);
   const deferredBody = useDeferredValue(body);
   const resolvedSlug = slugify(slug || title || "untitled-post");
   const [lastSavedSnapshot, setLastSavedSnapshot] = useState(() =>
-    snapshot({
-      slug: resolvedSlug,
-      title,
-      summary,
-      body,
-      tags,
-      publishedAt,
-    }),
+    snapshot({ slug: resolvedSlug, title, summary, body, tags, publishedAt }),
   );
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      const stored = window.localStorage.getItem(VIEW_MODE_KEY);
+      if (stored === "write" || stored === "split" || stored === "preview") {
+        setViewMode(stored);
+      }
+    }, 0);
+    return () => clearTimeout(timer);
+  }, []);
+
+  function changeViewMode(mode: ViewMode) {
+    setViewMode(mode);
+    window.localStorage.setItem(VIEW_MODE_KEY, mode);
+  }
 
   useEffect(() => {
     const controller = new AbortController();
@@ -94,75 +123,151 @@ export function PostEditor({ initialPost }: { initialPost: EditablePost }) {
     };
   }, [deferredBody]);
 
-  const submit = useCallback(async (
-    action: "save-draft" | "schedule" | "publish",
-    options?: { silent?: boolean },
-  ) => {
-    if (!options?.silent) {
-      setBusyAction(action);
-      setMessage(
-        action === "save-draft"
-          ? "Saving draft and queueing git sync…"
-          : action === "schedule"
-            ? "Scheduling post and queueing git sync…"
-            : "Publishing post and queueing git sync…",
-      );
-    }
-
-    const response = await fetch("/api/publish", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        action,
-        slug: resolvedSlug,
-        title,
-        summary,
-        body,
-        tags: tags
-          .split(",")
-          .map((tag) => tag.trim())
-          .filter(Boolean),
-        publishedAt: publishedAt || undefined,
-      }),
-    });
-
-    const payload = (await response.json()) as {
-      error?: string;
-      editorHref?: string;
-      previewHref?: string;
-      publishedHref?: string;
-      previewShareUrl?: string;
-    };
-
-    if (!options?.silent) {
-      setBusyAction(null);
-    }
-
-    if (!response.ok) {
+  const submit = useCallback(
+    async (action: "save-draft" | "schedule" | "publish", options?: { silent?: boolean }) => {
       if (!options?.silent) {
+        setBusyAction(action);
+        setMessage("");
+      }
+      setIsSaving(true);
+
+      const response = await fetch("/api/publish", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action,
+          slug: resolvedSlug,
+          title,
+          summary,
+          body,
+          tags: tags
+            .split(",")
+            .map((tag) => tag.trim())
+            .filter(Boolean),
+          publishedAt: publishedAt || undefined,
+        }),
+      });
+
+      const payload = (await response.json()) as {
+        error?: string;
+        editorHref?: string;
+        previewHref?: string;
+        publishedHref?: string;
+        previewShareUrl?: string;
+      };
+
+      if (!options?.silent) {
+        setBusyAction(null);
+      }
+      setIsSaving(false);
+
+      if (!response.ok) {
         setMessage(payload.error ?? "Save failed.");
+        return;
+      }
+
+      setSlug(resolvedSlug);
+      setShareUrl(payload.previewShareUrl ?? "");
+      setLastSavedSnapshot(
+        snapshot({ slug: resolvedSlug, title, summary, body, tags, publishedAt }),
+      );
+      if (!options?.silent) {
+        setMessage(
+          action === "publish"
+            ? "Published. Git sync is queued."
+            : action === "schedule"
+              ? "Scheduled. Git sync is queued."
+              : "Draft saved.",
+        );
+        router.replace(payload.editorHref ?? `/write/${resolvedSlug}`);
+        router.refresh();
+      }
+    },
+    [resolvedSlug, title, summary, body, tags, publishedAt, router],
+  );
+
+  const applyResult = useCallback((result: CommandResult) => {
+    setBody(result.value);
+    const textarea = textareaRef.current;
+    if (!textarea) return;
+    requestAnimationFrame(() => {
+      textarea.focus();
+      textarea.setSelectionRange(result.start, result.end);
+    });
+  }, []);
+
+  const currentSelection = useCallback(() => {
+    const textarea = textareaRef.current;
+    if (!textarea) {
+      return { value: body, start: body.length, end: body.length };
+    }
+    return {
+      value: textarea.value,
+      start: textarea.selectionStart,
+      end: textarea.selectionEnd,
+    };
+  }, [body]);
+
+  const handleToolbarAction = useCallback(
+    (action: ToolbarAction) => {
+      if (action.type === "image") {
+        fileInputRef.current?.click();
+        return;
+      }
+      if (action.type === "link") {
+        applyResult(insertLink(currentSelection()));
+        return;
+      }
+      applyResult(applyCommand(currentSelection(), COMMANDS[action.command]));
+    },
+    [applyResult, currentSelection],
+  );
+
+  function handleKeyDown(event: React.KeyboardEvent<HTMLTextAreaElement>) {
+    const meta = event.metaKey || event.ctrlKey;
+
+    if (meta) {
+      const key = event.key.toLowerCase();
+      if (key === "b") {
+        event.preventDefault();
+        applyResult(applyCommand(currentSelection(), COMMANDS.bold));
+        return;
+      }
+      if (key === "i") {
+        event.preventDefault();
+        applyResult(applyCommand(currentSelection(), COMMANDS.italic));
+        return;
+      }
+      if (key === "k") {
+        event.preventDefault();
+        applyResult(insertLink(currentSelection()));
+        return;
+      }
+      if (key === "e") {
+        event.preventDefault();
+        applyResult(applyCommand(currentSelection(), COMMANDS.inlineCode));
+        return;
       }
       return;
     }
 
-    setSlug(resolvedSlug);
-    setShareUrl(payload.previewShareUrl ?? "");
-    setLastSavedSnapshot(
-      snapshot({
-        slug: resolvedSlug,
-        title,
-        summary,
-        body,
-        tags,
-        publishedAt,
-      }),
-    );
-    if (!options?.silent) {
-      setMessage("Saved. The worker can pick up the queued sync job.");
-      router.replace(payload.editorHref ?? `/write/${resolvedSlug}`);
-      router.refresh();
+    if (event.key === "Enter") {
+      const result = continueListOnEnter(currentSelection());
+      if (result) {
+        event.preventDefault();
+        applyResult(result);
+      }
+      return;
     }
-  }, [resolvedSlug, title, summary, body, tags, publishedAt, router]);
+
+    if (event.key === "Tab" && !event.shiftKey) {
+      event.preventDefault();
+      const selection = currentSelection();
+      const next =
+        selection.value.slice(0, selection.start) + "  " + selection.value.slice(selection.end);
+      applyResult({ value: next, start: selection.start + 2, end: selection.start + 2 });
+    }
+  }
 
   async function uploadFile(file: File) {
     const formData = new FormData();
@@ -181,21 +286,16 @@ export function PostEditor({ initialPost }: { initialPost: EditablePost }) {
       return;
     }
 
-    const textarea = textareaRef.current;
-
-    if (!textarea) {
-      setBody((current) => `${current}\n${payload.markdown}\n`);
-      return;
-    }
-
-    const start = textarea.selectionStart;
-    const end = textarea.selectionEnd;
-
-    setBody((current) => {
-      const next = `${current.slice(0, start)}${payload.markdown}\n${current.slice(end)}`;
-      return next;
+    const selection = currentSelection();
+    const inserted = `${payload.markdown}\n`;
+    const next =
+      selection.value.slice(0, selection.start) + inserted + selection.value.slice(selection.end);
+    applyResult({
+      value: next,
+      start: selection.start + inserted.length,
+      end: selection.start + inserted.length,
     });
-    setMessage("Image uploaded and markdown inserted.");
+    setMessage("Image uploaded.");
   }
 
   function handlePaste(event: React.ClipboardEvent<HTMLTextAreaElement>) {
@@ -238,7 +338,12 @@ export function PostEditor({ initialPost }: { initialPost: EditablePost }) {
       return;
     }
     setShareUrl(payload.url);
-    setMessage("Preview link generated (24h).");
+    try {
+      await navigator.clipboard.writeText(payload.url);
+      setMessage("Preview link copied to clipboard (valid 24h).");
+    } catch {
+      setMessage("Preview link generated (valid 24h).");
+    }
   }
 
   function syncPreviewScroll(event: React.UIEvent<HTMLTextAreaElement>) {
@@ -265,71 +370,170 @@ export function PostEditor({ initialPost }: { initialPost: EditablePost }) {
     const dirty = nextSnapshot !== lastSavedSnapshot;
     if (!dirty || busyAction !== null) return;
 
-    const timer = setTimeout(async () => {
-      setIsAutosaving(true);
-      await submit("save-draft", { silent: true });
-      setIsAutosaving(false);
+    const timer = setTimeout(() => {
+      void submit("save-draft", { silent: true });
     }, 1500);
 
     return () => clearTimeout(timer);
   }, [resolvedSlug, title, summary, body, tags, publishedAt, lastSavedSnapshot, busyAction, submit]);
 
+  useEffect(() => {
+    function onGlobalKeyDown(event: KeyboardEvent) {
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "s") {
+        event.preventDefault();
+        void submit("save-draft");
+      }
+    }
+    window.addEventListener("keydown", onGlobalKeyDown);
+    return () => window.removeEventListener("keydown", onGlobalKeyDown);
+  }, [submit]);
+
+  const isDirty =
+    snapshot({ slug: resolvedSlug, title, summary, body, tags, publishedAt }) !==
+    lastSavedSnapshot;
+  const saveState = isSaving ? "saving" : isDirty ? "dirty" : slug ? "saved" : "idle";
+  const saveLabel =
+    saveState === "saving"
+      ? "Saving…"
+      : saveState === "saved"
+        ? "Saved"
+        : saveState === "dirty"
+          ? "Unsaved changes"
+          : "Draft";
+
+  const showEditorPane = viewMode !== "preview";
+  const showPreviewPane = viewMode !== "write";
+
   return (
-    <div className="section-stack">
-      <section className="panel panel-strong" style={{ padding: "1.4rem" }}>
-        <p className="tiny">Editor</p>
-        <h1 className="page-title">Textarea first. Preview beside it.</h1>
-        <p className="page-subtitle">
-          Save draft, schedule, and publish all use the same file-backed flow.
-          Paste or drop screenshots straight into the body field.
+    <div className="editor-page">
+      <header className="editor-topbar">
+        <div className="editor-topbar-status">
+          <span
+            className={`editor-save-dot editor-save-dot-${saveState}`}
+            aria-hidden="true"
+          />
+          <span className="tiny">{saveLabel}</span>
+          <span className="tiny editor-topbar-counts">
+            {preview.wordCount} words · {preview.readingTimeMinutes} min read
+          </span>
+        </div>
+
+        <div className="editor-view-toggle" role="group" aria-label="Editor view">
+          {(["write", "split", "preview"] as const).map((mode) => (
+            <button
+              key={mode}
+              type="button"
+              className={viewMode === mode ? "is-active" : undefined}
+              onClick={() => changeViewMode(mode)}
+            >
+              {mode === "write" ? "Write" : mode === "split" ? "Split" : "Preview"}
+            </button>
+          ))}
+        </div>
+
+        <div className="button-row editor-topbar-actions">
+          <button
+            className="button button-ghost"
+            type="button"
+            onClick={() => void sharePreview()}
+          >
+            Share preview
+          </button>
+          <button
+            className="button button-secondary"
+            disabled={busyAction !== null}
+            onClick={() => void submit("save-draft")}
+            type="button"
+          >
+            {busyAction === "save-draft" ? "Saving…" : "Save draft"}
+          </button>
+          <button
+            className="button button-secondary"
+            disabled={busyAction !== null}
+            onClick={() => void submit("schedule")}
+            type="button"
+          >
+            {busyAction === "schedule" ? "Scheduling…" : "Schedule"}
+          </button>
+          <button
+            className="button button-primary"
+            disabled={busyAction !== null}
+            onClick={() => void submit("publish")}
+            type="button"
+          >
+            {busyAction === "publish" ? "Publishing…" : "Publish"}
+          </button>
+        </div>
+      </header>
+
+      {message ? <p className="editor-message">{message}</p> : null}
+      {shareUrl ? (
+        <p className="editor-message">
+          Share link: <a href={shareUrl}>{shareUrl}</a>
         </p>
-      </section>
+      ) : null}
 
-      <section className="editor-grid">
-        <div className="panel editor-panel section-stack">
-          <div className="editor-meta">
-            <div className="field">
-              <label htmlFor="title">Title</label>
-              <input
-                id="title"
-                value={title}
-                onChange={(event) => setTitle(event.target.value)}
-                placeholder="A note worth publishing"
-              />
-            </div>
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/*"
+        hidden
+        onChange={(event) => {
+          const file = event.target.files?.[0];
+          if (file) void uploadFile(file);
+          event.target.value = "";
+        }}
+      />
 
-            <div className="field">
-              <label htmlFor="slug">Slug</label>
-              <input
-                id="slug"
-                value={slug}
-                onChange={(event) => setSlug(event.target.value)}
-                placeholder={resolvedSlug}
-              />
-            </div>
+      <input
+        id="title"
+        className="editor-title-input"
+        value={title}
+        onChange={(event) => setTitle(event.target.value)}
+        placeholder="Post title"
+        aria-label="Post title"
+      />
 
-            <div className="field">
-              <label htmlFor="summary">Summary</label>
-              <input
-                id="summary"
-                value={summary}
-                onChange={(event) => setSummary(event.target.value)}
-                placeholder="What should the feed and list page say?"
-              />
-            </div>
-
-            <div className="field">
-              <label htmlFor="publish-date">Publish date</label>
-              <input
-                id="publish-date"
-                type="datetime-local"
-                value={publishedAt ? publishedAt.slice(0, 16) : ""}
-                onChange={(event) => setPublishedAt(event.target.value)}
-              />
-            </div>
+      <details className="editor-settings">
+        <summary>
+          Post settings
+          <span className="tiny editor-settings-hint">
+            /{resolvedSlug}
+            {tags.trim() ? ` · ${tags}` : ""}
+          </span>
+        </summary>
+        <div className="editor-meta">
+          <div className="field">
+            <label htmlFor="slug">Slug</label>
+            <input
+              id="slug"
+              value={slug}
+              onChange={(event) => setSlug(event.target.value)}
+              placeholder={resolvedSlug}
+            />
           </div>
 
           <div className="field">
+            <label htmlFor="publish-date">Publish date</label>
+            <input
+              id="publish-date"
+              type="datetime-local"
+              value={publishedAt ? publishedAt.slice(0, 16) : ""}
+              onChange={(event) => setPublishedAt(event.target.value)}
+            />
+          </div>
+
+          <div className="field editor-meta-wide">
+            <label htmlFor="summary">Summary</label>
+            <input
+              id="summary"
+              value={summary}
+              onChange={(event) => setSummary(event.target.value)}
+              placeholder="What should the feed and list page say?"
+            />
+          </div>
+
+          <div className="field editor-meta-wide">
             <label htmlFor="tags">Tags</label>
             <input
               id="tags"
@@ -338,86 +542,45 @@ export function PostEditor({ initialPost }: { initialPost: EditablePost }) {
               placeholder="writing, self-hosting"
             />
           </div>
+        </div>
+      </details>
 
-          <div className="split-note">
-            <div>
-              <strong>Body</strong>
-              <div className="tiny">
-                {preview.wordCount} words · {preview.readingTimeMinutes} min read
-              </div>
-            </div>
-
-            <div className="button-row">
-              <a className="button button-ghost" href={`/preview/${resolvedSlug}`}>
-                Open preview
-              </a>
-              <button className="button button-ghost" type="button" onClick={() => void sharePreview()}>
-                Share preview
-              </button>
-            </div>
-          </div>
-
-          <div className="field">
+      <div
+        className={`editor-workspace ${
+          viewMode === "split" ? "editor-workspace-split" : "editor-workspace-single"
+        }`}
+      >
+        {showEditorPane ? (
+          <div className="editor-pane">
+            <EditorToolbar onAction={handleToolbarAction} />
             <textarea
               ref={textareaRef}
+              className="editor-body"
               value={body}
               onChange={(event) => setBody(event.target.value)}
+              onKeyDown={handleKeyDown}
               onPaste={handlePaste}
               onDrop={handleDrop}
               onScroll={syncPreviewScroll}
               onDragOver={(event) => event.preventDefault()}
-              placeholder="Write in Markdown or MDX. Paste screenshots directly."
+              placeholder="Tell your story. Markdown works — or use the toolbar above. Paste or drop images straight in."
+              aria-label="Post body"
             />
           </div>
+        ) : null}
 
-          <div className="button-row">
-            <button
-              className="button button-secondary"
-              disabled={busyAction !== null}
-              onClick={() => void submit("save-draft")}
-              type="button"
-            >
-              {busyAction === "save-draft" ? "Saving…" : "Save draft"}
-            </button>
-            <button
-              className="button button-ghost"
-              disabled={busyAction !== null}
-              onClick={() => void submit("schedule")}
-              type="button"
-            >
-              {busyAction === "schedule" ? "Scheduling…" : "Schedule"}
-            </button>
-            <button
-              className="button button-primary"
-              disabled={busyAction !== null}
-              onClick={() => void submit("publish")}
-              type="button"
-            >
-              {busyAction === "publish" ? "Publishing…" : "Publish"}
-            </button>
-          </div>
-
-          <p className="message">{message}</p>
-          {isAutosaving ? <p className="message">Autosaving…</p> : null}
-          {shareUrl ? <p className="message">{shareUrl}</p> : null}
-        </div>
-
-        <aside className="panel editor-panel panel-strong">
-          <div className="split-note">
-            <div>
-              <strong>Live preview</strong>
-              <div className="tiny">Same markdown pipeline as the preview route.</div>
+        {showPreviewPane ? (
+          <div className="editor-pane editor-preview-pane">
+            <div className="editor-preview-head tiny">
+              Live preview
+              <a href={`/preview/${resolvedSlug}`}>Open full preview →</a>
+            </div>
+            <div className="preview-wrap" ref={previewWrapRef}>
+              <div className="prose" dangerouslySetInnerHTML={{ __html: preview.html }} />
             </div>
           </div>
-
-          <div className="preview-wrap" ref={previewWrapRef}>
-            <div
-              className="prose"
-              dangerouslySetInnerHTML={{ __html: preview.html }}
-            />
-          </div>
-        </aside>
-      </section>
+        ) : null}
+      </div>
     </div>
   );
 }

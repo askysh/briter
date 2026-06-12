@@ -3,6 +3,7 @@ import { describe, expect, test } from "bun:test";
 import {
   derivePostStatus,
   normalizePostInput,
+  serializePostFile,
   serializeTags,
 } from "@/lib/content/post-document";
 
@@ -67,6 +68,23 @@ describe("post-document", () => {
       tags: ["writing", "notes"],
       body: "Body\n",
     });
+  });
+
+  test("serializes posts with undefined frontmatter values (e.g. no publish date)", () => {
+    const file = serializePostFile(
+      {
+        title: "Dev Test",
+        summary: "Dev test",
+        draft: true,
+        tags: ["dev"],
+        publishedAt: undefined,
+      },
+      "Akash test",
+    );
+
+    expect(file).toContain("title: Dev Test");
+    expect(file).not.toContain("publishedAt");
+    expect(file.endsWith("Akash test\n")).toBe(true);
   });
 
   test("serializes tags into a comma-safe array", () => {
