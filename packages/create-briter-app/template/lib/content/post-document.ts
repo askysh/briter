@@ -60,5 +60,13 @@ export function derivePostStatus(
 }
 
 export function serializePostFile(frontmatter: PostFrontmatter, body: string) {
-  return matter.stringify(ensureTrailingNewline(body.trimEnd()), frontmatter);
+  // js-yaml refuses to dump `undefined` values (e.g. an unset publishedAt),
+  // so drop them before serializing.
+  const definedFrontmatter = Object.fromEntries(
+    Object.entries(frontmatter).filter(([, value]) => value !== undefined),
+  );
+  return matter.stringify(
+    ensureTrailingNewline(body.trimEnd()),
+    definedFrontmatter,
+  );
 }

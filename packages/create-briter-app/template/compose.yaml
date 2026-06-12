@@ -1,21 +1,24 @@
 services:
   web:
     build: .
-    command: bun run start
+    # Next standalone server bundled into the image (see Dockerfile CMD).
+    command: bun server.js
     ports:
       - "3075:3075"
     volumes:
       - ./storage:/app/storage
       - ./content:/app/content
     healthcheck:
-      test: ["CMD", "wget", "-qO-", "http://localhost:3075/api/health"]
+      # The oven/bun runtime image ships no wget/curl; probe with bun itself.
+      test: ["CMD", "bun", "-e", "const r = await fetch('http://localhost:3075/api/health'); if (!r.ok) process.exit(1);"]
       interval: 15s
       timeout: 5s
       retries: 5
 
   worker:
     build: .
-    command: bun run worker
+    # Invoke via bun: the runtime image has no node binary.
+    command: bun scripts/run-git-sync-worker.mjs
     volumes:
       - ./storage:/app/storage
       - ./content:/app/content

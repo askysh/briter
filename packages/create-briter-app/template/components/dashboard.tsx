@@ -4,6 +4,17 @@ import type { PostDocument } from "@/lib/content/types";
 import { StorageUsageBar } from "@/components/admin/storage-usage-bar";
 import { StatusPill } from "@/components/status-pill";
 
+function formatDate(value?: string): string {
+  if (!value) return "Unscheduled";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return date.toLocaleDateString(undefined, {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+  });
+}
+
 export function Dashboard({
   posts,
   queueSummary,
@@ -13,86 +24,91 @@ export function Dashboard({
   queueSummary: { pending: number; failed: number };
   storageUsage: { usedBytes: number; capBytes: number };
 }) {
-  return (
-    <div className="section-stack">
-      <section className="panel panel-strong hero">
-        <div className="section-stack">
-          <p className="tiny">Standalone scaffold</p>
-          <h1>Shorten the distance between thinking and publishing.</h1>
-          <p>
-            Briter stays opinionated on purpose: Markdown and MDX stay in your
-            repo, images are part of the core writing loop, and git sync runs
-            behind a worker boundary instead of inside the writing surface.
-          </p>
-          <div className="button-row">
-            <Link className="button button-primary" href="/write/new">
-              Start writing
-            </Link>
-            <Link className="button button-secondary" href="/docs/architecture">
-              Read architecture
-            </Link>
-          </div>
-        </div>
+  const drafts = posts.filter((post) => post.status === "draft").length;
+  const published = posts.filter((post) => post.status === "published").length;
 
-        <div className="metric-grid">
-          <div className="panel metric">
-            <div className="metric-label">Posts</div>
-            <div className="metric-value">{posts.length}</div>
-          </div>
-          <div className="panel metric">
-            <div className="metric-label">Queued sync jobs</div>
-            <div className="metric-value">{queueSummary.pending}</div>
-          </div>
-          <div className="panel metric">
-            <div className="metric-label">Retrying jobs</div>
-            <div className="metric-value">{queueSummary.failed}</div>
-          </div>
+  return (
+    <div className="section-stack dashboard">
+      <header className="dashboard-head">
+        <div>
+          <h1 className="page-title">Dashboard</h1>
+          <p className="page-subtitle">
+            {published} published · {drafts} draft{drafts === 1 ? "" : "s"}
+            {queueSummary.pending > 0
+              ? ` · ${queueSummary.pending} sync job${queueSummary.pending === 1 ? "" : "s"} queued`
+              : ""}
+          </p>
         </div>
-      </section>
+        <Link className="button button-primary" href="/write/new">
+          New post
+        </Link>
+      </header>
+
+      <div className="stat-strip">
+        <div className="panel stat-card">
+          <span className="metric-label">Posts</span>
+          <span className="metric-value">{posts.length}</span>
+        </div>
+        <div className="panel stat-card">
+          <span className="metric-label">Queued sync</span>
+          <span className="metric-value">{queueSummary.pending}</span>
+        </div>
+        <div className="panel stat-card">
+          <span className="metric-label">Retrying</span>
+          <span className="metric-value">{queueSummary.failed}</span>
+        </div>
+        <div className="panel stat-card stat-card-wide">
+          <StorageUsageBar
+            usedBytes={storageUsage.usedBytes}
+            capBytes={storageUsage.capBytes}
+          />
+        </div>
+      </div>
 
       <section className="panel dashboard-list">
-        <StorageUsageBar
-          usedBytes={storageUsage.usedBytes}
-          capBytes={storageUsage.capBytes}
-        />
-        <div className="split-note">
-          <div>
-            <h2 className="page-title" style={{ fontSize: "2rem" }}>
-              Posts
-            </h2>
-            <p className="page-subtitle">
-              Drafts, scheduled posts, and published notes all stay in plain
-              files under version control.
-            </p>
-          </div>
+        <div className="dashboard-list-head">
+          <h2 className="dashboard-list-title">Posts</h2>
         </div>
 
-        {posts.map((post) => (
-          <article key={post.slug} className="post-row">
-            <div className="section-stack" style={{ gap: "0.3rem" }}>
-              <a className="post-title" href={`/write/${post.slug}`}>
-                {post.frontmatter.title}
-              </a>
-              <span className="post-meta">
-                {post.frontmatter.summary || "No summary yet."}
-              </span>
-              <span className="tiny">
-                {post.frontmatter.publishedAt ?? "Unscheduled"} · {post.wordCount} words
-              </span>
-            </div>
+        {posts.length === 0 ? (
+          <div className="dashboard-empty">
+            <p>Nothing here yet.</p>
+            <Link className="button button-primary" href="/write/new">
+              Write your first post
+            </Link>
+          </div>
+        ) : (
+          posts.map((post) => (
+            <article key={post.slug} className="post-row">
+              <div className="post-row-main">
+                <Link className="post-title" href={`/write/${post.slug}`}>
+                  {post.frontmatter.title}
+                </Link>
+                {post.frontmatter.summary ? (
+                  <span className="post-meta">{post.frontmatter.summary}</span>
+                ) : null}
+                <span className="tiny">
+                  {formatDate(post.frontmatter.publishedAt)} · {post.wordCount}{" "}
+                  words
+                </span>
+              </div>
 
-            <StatusPill status={post.status} />
+              <StatusPill status={post.status} />
 
-            <div className="button-row">
-              <a className="button button-ghost" href={`/preview/${post.slug}`}>
-                Preview
-              </a>
-              <a className="button button-secondary" href={`/write/${post.slug}`}>
-                Edit
-              </a>
-            </div>
-          </article>
-        ))}
+              <div className="button-row">
+                <a className="button button-ghost" href={`/preview/${post.slug}`}>
+                  Preview
+                </a>
+                <Link
+                  className="button button-secondary"
+                  href={`/write/${post.slug}`}
+                >
+                  Edit
+                </Link>
+              </div>
+            </article>
+          ))
+        )}
       </section>
     </div>
   );
