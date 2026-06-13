@@ -21,7 +21,12 @@ export async function POST(request: Request) {
 
   const payload = (await request.json()) as PublishPayload;
   const { repository, queue, siteAdapter, env } = await createAppServices();
-  const service = new PublishService(repository, queue, siteAdapter);
+  const service = new PublishService(
+    repository,
+    queue,
+    siteAdapter,
+    env.gitWorktreeRoot,
+  );
   const now = new Date().toISOString();
 
   if (!payload.title.trim()) {

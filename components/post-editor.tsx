@@ -57,6 +57,26 @@ function snapshot(input: {
   return JSON.stringify(input);
 }
 
+// publishedAt is stored as a UTC ISO instant so scheduling is timezone-correct
+// regardless of where the worker runs. The <input type="datetime-local">, by
+// contrast, speaks the author's local wall-clock time — so convert at the edges.
+function isoToLocalInput(iso: string): string {
+  if (!iso) return "";
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return "";
+  const pad = (value: number) => String(value).padStart(2, "0");
+  return (
+    `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}` +
+    `T${pad(date.getHours())}:${pad(date.getMinutes())}`
+  );
+}
+
+function localInputToIso(local: string): string {
+  if (!local) return "";
+  const date = new Date(local);
+  return Number.isNaN(date.getTime()) ? "" : date.toISOString();
+}
+
 export function PostEditor({ initialPost }: { initialPost: EditablePost }) {
   const router = useRouter();
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -518,8 +538,10 @@ export function PostEditor({ initialPost }: { initialPost: EditablePost }) {
             <input
               id="publish-date"
               type="datetime-local"
-              value={publishedAt ? publishedAt.slice(0, 16) : ""}
-              onChange={(event) => setPublishedAt(event.target.value)}
+              value={isoToLocalInput(publishedAt)}
+              onChange={(event) =>
+                setPublishedAt(localInputToIso(event.target.value))
+              }
             />
           </div>
 

@@ -1,5 +1,5 @@
 import { mkdir, readdir, readFile, writeFile } from "node:fs/promises";
-import { basename, extname, join, relative } from "node:path";
+import { basename, extname, join } from "node:path";
 
 import matter from "gray-matter";
 
@@ -98,7 +98,6 @@ export class FileContentRepository {
     return {
       post,
       absolutePath: filePath,
-      relativePath: relative(process.cwd(), filePath),
     };
   }
 
