@@ -33,16 +33,18 @@ See [Images & pipeline](images) for details on variants, EXIF stripping, and sto
 draft → scheduled → published → archived
 ```
 
-- **Draft** — saved but not published. Visible only to you (with a session or a preview token).
-- **Scheduled** — has a `publishedAt` date in the future. The worker publishes it at that time.
+- **Draft** — `draft: true`. Saved but not published. Visible only to you (with a session or a preview token).
+- **Scheduled** — has a `publishedAt` datetime in the future. The [worker](worker) holds it and publishes at that instant.
 - **Published** — live at `/posts/<slug>` (built-in reader) or committed to the external site (git-target adapter).
-- **Archived** — removed from the public listing. File is kept; set `draft: true` to make it unpublish.
+- **Archived** — `archived: true`. Hidden from the public site; the file is **kept** and the change is reversible (clear the flag to restore).
+
+Status is derived from frontmatter, with `archived` taking precedence over everything. See [Scheduling & archiving](scheduling) for the full rules.
 
 ## Dashboard filters
 
 The dashboard shows tabs: **Drafts**, **Scheduled**, **Published**, **Failed sync**. Use the search box to filter by title across all tabs.
 
-**Failed sync** shows posts where the git-sync worker hit a permanent error. Click a post to see `lastError` and retry.
+**Failed sync** shows posts whose git-sync job was dead-lettered after `BRITER_WORKER_MAX_ATTEMPTS` (default 8) failed attempts. Click a post to see its `lastError`; re-saving enqueues a fresh attempt. See [Worker & Queue](worker).
 
 ## Preview tokens
 
@@ -64,5 +66,8 @@ draft: false
 ---
 ```
 
-- `publishedAt` in the future → post is scheduled
+- `publishedAt` (full ISO-8601 datetime) in the future → post is scheduled and held until that instant
 - `draft: true` → post is never surfaced publicly regardless of date
+- `archived: true` → post is hidden from the public site; reversible
+
+See [Scheduling & archiving](scheduling) for details.
