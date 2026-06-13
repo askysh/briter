@@ -19,6 +19,7 @@ export type RuntimeConfig = {
   uploadRouteBase: string;
   workerDryRun: boolean;
   workerPollIntervalMs: number;
+  workerMaxAttempts: number;
   uploadStorageLimitBytes: number;
   siteName: string;
   siteDescription: string;
@@ -55,6 +56,7 @@ function defaults(appRoot: string): RuntimeConfig {
     uploadRouteBase: "/uploads",
     workerDryRun: true,
     workerPollIntervalMs: 5000,
+    workerMaxAttempts: 8,
     uploadStorageLimitBytes: 500 * 1024 * 1024,
     siteName: "Briter",
     siteDescription: "A small, opinionated writing app.",
@@ -100,6 +102,9 @@ export async function loadRuntimeConfig(
     workerPollIntervalMs: source.BRITER_WORKER_POLL_INTERVAL_MS
       ? parseNumber(source.BRITER_WORKER_POLL_INTERVAL_MS, base.workerPollIntervalMs)
       : undefined,
+    workerMaxAttempts: source.BRITER_WORKER_MAX_ATTEMPTS
+      ? parseNumber(source.BRITER_WORKER_MAX_ATTEMPTS, base.workerMaxAttempts)
+      : undefined,
     uploadStorageLimitBytes: source.BRITER_UPLOAD_STORAGE_LIMIT_BYTES
       ? parseNumber(
           source.BRITER_UPLOAD_STORAGE_LIMIT_BYTES,
@@ -126,6 +131,7 @@ export async function loadRuntimeConfig(
   return {
     ...merged,
     workerPollIntervalMs: merged.workerPollIntervalMs || base.workerPollIntervalMs,
+    workerMaxAttempts: merged.workerMaxAttempts || base.workerMaxAttempts,
     uploadStorageLimitBytes:
       merged.uploadStorageLimitBytes || base.uploadStorageLimitBytes,
     contentRoot: merged.contentRoot || base.contentRoot,

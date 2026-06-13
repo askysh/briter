@@ -36,6 +36,10 @@ export function resolveBriterEnv(
       source.BRITER_WORKER_POLL_INTERVAL_MS ?? "5000",
       10,
     ),
+    workerMaxAttempts: Number.parseInt(
+      source.BRITER_WORKER_MAX_ATTEMPTS ?? "8",
+      10,
+    ),
     uploadStorageLimitBytes: Number.parseInt(
       source.BRITER_UPLOAD_STORAGE_LIMIT_BYTES ??
         String(500 * 1024 * 1024),

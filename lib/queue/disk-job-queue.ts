@@ -78,11 +78,24 @@ export class DiskJobQueue {
     );
   }
 
-  async markFailed(id: string, error: string, nextRun: Date) {
+  /**
+   * Record a failed attempt. Once attempts reach `maxAttempts` the job is
+   * dead-lettered (status "failed") and stops being retried, instead of
+   * rescheduling forever. Returns the updated job so callers can log outcome.
+   */
+  async markFailed(
+    id: string,
+    error: string,
+    nextRun: Date,
+    maxAttempts = Number.POSITIVE_INFINITY,
+  ): Promise<GitSyncJob> {
     const job = await this.read(id);
+    const attempts = job.attempts + 1;
+    const deadLettered = attempts >= maxAttempts;
     const updated: GitSyncJob = {
       ...job,
-      attempts: job.attempts + 1,
+      attempts,
+      status: deadLettered ? "failed" : job.status,
       lastError: error,
       scheduledFor: nextRun.toISOString(),
       nextRunAt: nextRun.toISOString(),
@@ -90,6 +103,7 @@ export class DiskJobQueue {
     };
 
     await this.write(updated);
+    return updated;
   }
 
   async remove(id: string) {
@@ -98,10 +112,11 @@ export class DiskJobQueue {
 
   async getSummary() {
     const jobs = await this.listAll();
+    const deadLettered = jobs.filter(isTerminal);
 
     return {
-      pending: jobs.length,
-      failed: jobs.filter((job) => job.attempts > 0).length,
+      pending: jobs.length - deadLettered.length,
+      failed: deadLettered.length,
     };
   }
 

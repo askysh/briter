@@ -41,7 +41,12 @@ export class GitSyncWorker {
         const message =
           error instanceof Error ? error.message : "Unknown git worker failure";
 
-        await this.queue.markFailed(job.id, message, nextRun);
+        await this.queue.markFailed(
+          job.id,
+          message,
+          nextRun,
+          this.env.workerMaxAttempts,
+        );
       }
     }
 
