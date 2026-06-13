@@ -75,7 +75,7 @@ After completing the wizard:
 
 ## Recovery
 
-**Forgot password:** Run `bun run scripts/reset-admin.mjs` from the Briter directory. Enter a new password at the prompt.
+**Forgot password:** Run `bun run scripts/reset-admin.mjs` from the Briter directory. It generates a new random password and prints it to the console — copy it, then sign in and it stays in effect until you reset again.
 
 **Reset everything:** Delete `storage/config.json` and `storage/secrets.json`, then restart. Briter returns to first-boot state.
 
