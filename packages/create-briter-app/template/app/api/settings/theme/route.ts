@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-import { requireAdmin } from "@/lib/auth/require-admin";
+import { requireAdmin, requireAdminMutation } from "@/lib/auth/require-admin";
 import { resolveTheme } from "@/lib/theme/resolve";
 import {
   loadThemeConfig,
@@ -17,7 +17,7 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
-  const unauthorized = await requireAdmin();
+  const unauthorized = await requireAdminMutation(request);
   if (unauthorized) return unauthorized;
 
   const payload = await request.json();
