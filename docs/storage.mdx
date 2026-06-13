@@ -1,0 +1,51 @@
+---
+title: "Storage & Uploads"
+description: "Disk-aware provisioning: how Briter senses free disk, sets an upload cap, enforces it, and reports used/cap/free on the dashboard."
+order: 5
+category: "operations"
+---
+
+# Storage & Uploads
+
+Briter stores processed images on the local data volume and enforces a **provisioned upload cap** so a single instance can't fill the disk. This page covers the cap, how it's sensed and enforced, and where usage is reported. For the image *pipeline* (variants, EXIF stripping, formats), see [Images](images).
+
+## The upload cap
+
+Every upload counts against a byte cap, `BRITER_UPLOAD_STORAGE_LIMIT_BYTES` (default **500 MB** = `524288000`). The cap is a *self-imposed budget*, independent of the physical disk size — it protects the host even when there's plenty of free space.
+
+The [setup wizard](setup-wizard) senses the real free disk at install time and proposes a sensible cap; you can adjust it later in Settings. The cap is stored in `config.json` and can be overridden by the environment variable (see [Configuration Reference](configuration)).
+
+## Enforcement
+
+Enforcement lives in `UploadImageService` (`lib/uploads/image-upload-service.ts`), backed by helpers in `lib/uploads/budget.ts`:
+
+- **Hard cap:** an upload that would push total upload size **over** the cap is rejected with `UploadLimitError`.
+- **95% soft cap:** an upload that would cross **95%** of the cap is also rejected (`isNearCapacity` flags usage `>= floor(cap * 0.95)`), with the message *"Upload storage is near capacity (95% soft cap)."* This leaves headroom rather than letting the very last byte fill the budget.
+
+Current usage is computed by summing the size of every file under the upload root, **recursively** (`computeDirectorySize`), so images nested in per-post subfolders are counted correctly.
+
+## Disk sensing
+
+Briter also reports the **physical** headroom of the volume that backs uploads, separately from the self-imposed cap. `senseDiskUsage()` (`lib/uploads/disk-usage.ts`) uses Node's `fs.statfsSync` to read total, free, and used bytes for the filesystem holding the upload root. Disk sensing is informational and never fatal — if it fails, Briter returns `null` for the disk figures and carries on.
+
+## Where usage is reported
+
+The dashboard shows a storage bar. The data comes from `GET /api/uploads/usage`, which returns:
+
+| Field | Meaning |
+|---|---|
+| `usedBytes` | Bytes currently consumed by uploads. |
+| `capBytes` | The provisioned cap (`BRITER_UPLOAD_STORAGE_LIMIT_BYTES`). |
+| `disk` | Physical `totalBytes` / `freeBytes` / `usedBytes` of the data volume, or `null` if sensing failed. |
+
+So the dashboard can show **used vs. cap** (your budget) alongside **free disk** (actual headroom).
+
+## Freeing space
+
+Briter does not yet ship a media-library manager. To reclaim space, delete the variant files and the corresponding manifest under the upload root (`storage/uploads/posts/<slug>/`); usage recomputes from the filesystem on the next check.
+
+## Object storage
+
+The [Constitution](https://github.com/askysh/briter/blob/main/CONSTITUTION.md) provides for images on either local disk **or** an S3-compatible bucket (Cloudflare R2, Backblaze B2, MinIO, AWS S3). The disk-aware cap described here governs the local-disk path, which is what ships today; see the [Roadmap](roadmap) for the storage-provider abstraction.
+</content>
+</invoke>

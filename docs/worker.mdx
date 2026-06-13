@@ -1,0 +1,87 @@
+---
+title: "Worker & Queue"
+description: "How the git-sync worker processes jobs: per-slug dedup, the stale-lock runner, retry backoff, max-attempt dead-lettering, and structured logs."
+order: 2
+category: "operations"
+---
+
+# Worker & Queue
+
+Briter never pushes to git from a web request. The web app writes a **job file** to a disk-backed queue; a separate **worker process** drains that queue, stages the declared paths, commits, and pushes. The two processes share the `storage/` directory (a Docker volume in production) so the queue is visible from both sides. See [Architecture](architecture) for the wider picture and [Docker](docker) for running the worker as a service.
+
+## The queue
+
+The queue is `DiskJobQueue` (`lib/queue/disk-job-queue.ts`): one JSON file per job under `storage/queue/` (`BRITER_QUEUE_ROOT`). Each `git-sync` job records the post slug, the paths to stage, the commit message, a `scheduledFor` instant, the attempt count, and a status.
+
+### Per-slug dedup
+
+A post has **at most one pending job**. When you re-save a post, `enqueue()` removes any existing non-terminal job for the same slug before writing the new one. This means editing a [scheduled](scheduling) post never leaves a stale job behind that still fires the old version.
+
+### Scheduling hold
+
+`listDue()` only returns jobs whose `scheduledFor` is at or before *now*. A post scheduled for the future is held in the queue — nothing reaches git or git history before its publish instant. Drafts and immediate publishes get a `scheduledFor` of enqueue time, so they sync right away. This is the mechanism behind [Scheduling & archiving](scheduling).
+
+## The worker process
+
+Run the worker with:
+
+```bash
+bun run worker        # poll-and-loop (production)
+bun run worker:once   # drain once and exit (cron-style)
+```
+
+The entrypoint is `scripts/run-git-sync-worker.mjs`; the processing logic is `GitSyncWorker.processDueJobs()` (`lib/worker/git-sync-worker.ts`).
+
+### Single-flight lock with stale recovery
+
+Only one worker may run at a time. On start, the entrypoint acquires `storage/worker.lock`, a file containing the holder's **PID**. If another live worker holds the lock, the new process logs *"another worker instance is active, skipping"* and exits cleanly.
+
+A crashed worker would otherwise leave the lock behind and wedge every future sync, so the lock is **reclaimable** (`lib/worker/lock-file.ts`) when:
+
+- the recorded PID is not alive (checked with `process.kill(pid, 0)`), **or**
+- the lock file is older than the staleness TTL (`BRITER_WORKER_LOCK_STALE_MS`, default **60000 ms**) — this covers PID reuse, where a dead worker's PID has been recycled by an unrelated process, **or**
+- the lock file is unreadable or contains garbage.
+
+### Per-job processing
+
+For each due job, the worker:
+
+1. Validates the job's paths against the active adapter's allowlist (`validatePaths`). A job with **no** allowed paths is marked failed (`nopaths`). See [Adapters](adapters) for the allowlists.
+2. Asserts it is on the configured branch (`BRITER_GIT_BRANCH`), then stages the allowed paths.
+3. If staging produced **no** changes, the job is removed (`nochange`) — re-saving identical content is a no-op, not a failure.
+4. Otherwise commits with the job's message and pushes to `BRITER_GIT_REMOTE`/`BRITER_GIT_BRANCH`, then removes the job (`published`).
+
+> When `BRITER_WORKER_DRY_RUN` is true (the default), every step runs **except** the real push — useful for verifying wiring before going live. Set it to `false` to publish for real. See [Configuration Reference](configuration).
+
+### Retry backoff and dead-lettering
+
+If processing throws, the job is rescheduled with exponential backoff: **1 min → 5 min → 30 min** (the last delay repeats for further attempts). The attempt counter increments each time.
+
+Once attempts reach `BRITER_WORKER_MAX_ATTEMPTS` (default **8**), the job is **dead-lettered**: its status becomes `failed`, it stops being retried, and it no longer blocks a fresh pending job for the same slug. Dead-lettered jobs surface in the dashboard's **Failed sync** view with their `lastError`; re-saving the post enqueues a fresh attempt.
+
+### Structured logs
+
+Each job emits structured single-line JSON logs (`lib/worker/git-sync-worker.ts`) prefixed `[briter-worker]`, with a `start` entry and then an outcome:
+
+| Outcome | Meaning |
+|---|---|
+| `published` | Committed and pushed successfully. |
+| `nochange` | Staging produced no diff; job dropped. |
+| `nopaths` | No allowed paths in the job; marked failed. |
+| `failed` | Attempt failed; will retry with backoff. |
+| `dead-lettered` | Reached max attempts; will not retry. |
+
+Each entry carries `jobId`, `slug`, and `attempt` (1-based for the current run) so failures are traceable per post.
+
+## Tuning
+
+| Variable | Default | Effect |
+|---|---|---|
+| `BRITER_WORKER_DRY_RUN` | `true` | `false` enables real pushes. |
+| `BRITER_WORKER_POLL_INTERVAL_MS` | `5000` | Queue poll interval. |
+| `BRITER_WORKER_MAX_ATTEMPTS` | `8` | Attempts before dead-lettering. |
+| `BRITER_WORKER_LOCK_STALE_MS` | `60000` | Stale-lock reclaim age. |
+
+Full descriptions and defaults are in the [Configuration Reference](configuration).
+</content>
+</invoke>
