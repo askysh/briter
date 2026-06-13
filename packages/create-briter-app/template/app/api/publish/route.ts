@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { createAppServices } from "@/lib/app/services";
-import { requireAdmin } from "@/lib/auth/require-admin";
+import { requireAdminMutation } from "@/lib/auth/require-admin";
 import { createPreviewToken } from "@/lib/preview/preview-token";
 import { PublishService } from "@/lib/publish/publish-service";
 
@@ -16,7 +16,7 @@ type PublishPayload = {
 };
 
 export async function POST(request: Request) {
-  const unauthorized = await requireAdmin();
+  const unauthorized = await requireAdminMutation(request);
   if (unauthorized) return unauthorized;
 
   const payload = (await request.json()) as PublishPayload;

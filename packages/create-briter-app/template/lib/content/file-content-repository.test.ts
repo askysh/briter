@@ -58,6 +58,7 @@ describe("FileContentRepository", () => {
     const post = await repository.getPost("scheduled-note");
 
     expect(post?.frontmatter.publishedAt).toBe("2026-07-01T09:00:00.000Z");
+    // Same UTC instant as 14:30 IST, proving the time-of-day survived.
     expect(new Date(post!.frontmatter.publishedAt!).getTime()).toBe(
       new Date("2026-07-01T14:30:00+05:30").getTime(),
     );
@@ -66,6 +67,7 @@ describe("FileContentRepository", () => {
   test("round-trips a datetime: save -> file -> reload yields the identical value", async () => {
     tempRoot = await mkdtemp(join(tmpdir(), "briter-content-"));
     const repository = new FileContentRepository(tempRoot);
+    // The editor writes a full UTC ISO instant (datetime-local -> toISOString).
     const value = "2026-07-01T09:00:00.000Z";
 
     const { post: saved } = await repository.savePost({
@@ -81,6 +83,56 @@ describe("FileContentRepository", () => {
 
     const reloaded = await repository.getPost("round-trip");
     expect(reloaded?.frontmatter.publishedAt).toBe(value);
+  });
+
+  test("archive then un-archive: file stays on disk, status round-trips, flag clears", async () => {
+    tempRoot = await mkdtemp(join(tmpdir(), "briter-content-"));
+    const repository = new FileContentRepository(tempRoot);
+    const filePath = join(tempRoot, "live-post.mdx");
+
+    // A published post.
+    await repository.savePost({
+      slug: "live-post",
+      title: "Live Post",
+      summary: "S",
+      body: "Body.",
+      tags: [],
+      draft: false,
+      publishedAt: "2026-04-18T10:00:00.000Z",
+    });
+    expect((await repository.getPost("live-post"))?.status).toBe("published");
+
+    // Archive: same content, archived flag set.
+    const { post: archived } = await repository.savePost({
+      slug: "live-post",
+      title: "Live Post",
+      summary: "S",
+      body: "Body.",
+      tags: [],
+      draft: false,
+      publishedAt: "2026-04-18T10:00:00.000Z",
+      archived: true,
+    });
+    expect(archived.status).toBe("archived");
+    // The .mdx is still on disk and carries the flag — no git rm, reversible.
+    const archivedRaw = await readFile(filePath, "utf8");
+    expect(archivedRaw).toContain("archived: true");
+    expect(archivedRaw).toContain("Body.");
+
+    // Un-archive: flag cleared, published status restored, no residue.
+    const { post: restored } = await repository.savePost({
+      slug: "live-post",
+      title: "Live Post",
+      summary: "S",
+      body: "Body.",
+      tags: [],
+      draft: false,
+      publishedAt: "2026-04-18T10:00:00.000Z",
+      archived: false,
+    });
+    expect(restored.status).toBe("published");
+    const restoredRaw = await readFile(filePath, "utf8");
+    expect(restoredRaw).not.toContain("archived");
   });
 
   test("preserves frontmatter keys it does not manage when saving", async () => {

@@ -306,6 +306,12 @@ select {
   color: var(--briter-success);
 }
 
+.status-archived {
+  background: color-mix(in srgb, var(--briter-muted) 10%, transparent);
+  color: var(--briter-muted);
+  text-decoration: line-through;
+}
+
 .editor-grid {
   display: grid;
   grid-template-columns: minmax(0, 1.05fr) minmax(0, 0.95fr);
