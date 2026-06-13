@@ -44,6 +44,14 @@ export function derivePostStatus(
   frontmatter: PostFrontmatter,
   now = new Date(),
 ): PostStatus {
+  // Archived wins over every other state: the file stays on disk but the post
+  // is hidden from the public site. Clearing the flag (un-archiving) falls
+  // through to the normal draft -> scheduled -> published classification, so
+  // the restore is fully reversible.
+  if (frontmatter.archived) {
+    return "archived";
+  }
+
   if (frontmatter.draft) {
     return "draft";
   }

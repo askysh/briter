@@ -101,6 +101,10 @@ export class FileContentRepository {
           draft: normalized.draft,
           publishedAt: normalized.publishedAt,
           tags: normalized.tags,
+          // Only emit the flag when the post is archived; an unarchived post
+          // drops the key entirely (serializePostFile prunes undefined), so the
+          // round-trip stays clean and un-archiving leaves no residue.
+          archived: normalized.archived ? true : undefined,
         },
         normalized.body,
       ),
@@ -130,6 +134,7 @@ export class FileContentRepository {
       tags: Array.isArray(frontmatter.tags)
         ? frontmatter.tags.map((tag) => String(tag))
         : [],
+      archived: frontmatter.archived === true ? true : undefined,
     };
 
     return {

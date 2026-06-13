@@ -53,6 +53,36 @@ describe("post-document", () => {
     ).toBe("published");
   });
 
+  test("derives archived status regardless of publish date (overrides published)", () => {
+    expect(
+      derivePostStatus(
+        {
+          title: "Hidden",
+          summary: "Pulled from the site",
+          draft: false,
+          publishedAt: "2026-04-18T10:00:00.000Z",
+          tags: [],
+          archived: true,
+        },
+        new Date("2026-04-19T00:00:00.000Z"),
+      ),
+    ).toBe("archived");
+  });
+
+  test("un-archiving (clearing the flag) restores the prior status", () => {
+    const frontmatter = {
+      title: "Restored",
+      summary: "Back on the site",
+      draft: false,
+      publishedAt: "2026-04-18T10:00:00.000Z",
+      tags: [],
+    };
+    // archived flag absent -> falls through to the normal classification.
+    expect(
+      derivePostStatus(frontmatter, new Date("2026-04-19T00:00:00.000Z")),
+    ).toBe("published");
+  });
+
   test("normalizes slug, tags, and body for persistence", () => {
     expect(
       normalizePostInput({
