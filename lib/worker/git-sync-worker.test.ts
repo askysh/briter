@@ -50,6 +50,21 @@ class FailingGitClient implements GitClient {
   async push() {}
 }
 
+// Records every push so a test can assert a future-scheduled job never reaches
+// the remote before its time.
+class CountingGitClient implements GitClient {
+  public pushes = 0;
+  async assertBranch() {}
+  async stage() {}
+  async hasStagedChanges() {
+    return true;
+  }
+  async commit() {}
+  async push() {
+    this.pushes += 1;
+  }
+}
+
 describe("GitSyncWorker structured logging", () => {
   test("emits a start and result log line per processed job", async () => {
     tempRoot = await mkdtemp(join(tmpdir(), "briter-worker-"));
@@ -83,6 +98,47 @@ describe("GitSyncWorker structured logging", () => {
         outcome: "published",
       },
     ]);
+  });
+
+  test("holds a future-scheduled job in the queue: zero push before its time, one after (D1)", async () => {
+    tempRoot = await mkdtemp(join(tmpdir(), "briter-worker-"));
+    const queue = new DiskJobQueue(tempRoot);
+    const git = new CountingGitClient();
+
+    const publishInstant = "2026-07-01T09:00:00.000Z";
+    await queue.enqueue({
+      kind: "git-sync",
+      postSlug: "future-post",
+      paths: ["content/posts/future-post.mdx"],
+      commitMessage: "schedule",
+      scheduledFor: publishInstant,
+    });
+
+    const worker = new GitSyncWorker(
+      envWith(8),
+      queue,
+      git,
+      adapter,
+      () => {},
+    );
+
+    // Before the publish instant: the job is not due, so nothing is pushed and
+    // the job stays in the queue (it never reaches the remote / git history).
+    const beforeProcessed = await worker.processDueJobs(
+      new Date("2026-06-30T23:59:00.000Z"),
+    );
+    expect(beforeProcessed).toBe(0);
+    expect(git.pushes).toBe(0);
+    expect((await queue.listAll()).length).toBe(1);
+
+    // One minute after the instant: the job is due and pushes exactly once.
+    const afterProcessed = await worker.processDueJobs(
+      new Date("2026-07-01T09:01:00.000Z"),
+    );
+    expect(afterProcessed).toBe(1);
+    expect(git.pushes).toBe(1);
+    // Job is consumed once published.
+    expect((await queue.listAll()).length).toBe(0);
   });
 
   test("logs failure outcome with slug and error on a failed attempt", async () => {
