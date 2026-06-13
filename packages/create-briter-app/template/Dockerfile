@@ -14,6 +14,11 @@ RUN bun run build
 FROM oven/bun:1 AS runtime
 WORKDIR /app
 ENV NODE_ENV=production
+# The git-sync worker shells out to `git` (and pushes over SSH), neither of
+# which ships in the base bun image.
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends git openssh-client \
+    && rm -rf /var/lib/apt/lists/*
 COPY --from=build /app/.next/standalone ./
 COPY --from=build /app/.next/static ./.next/static
 COPY --from=build /app/content ./content
