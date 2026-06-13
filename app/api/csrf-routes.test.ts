@@ -17,6 +17,8 @@ import { POST as login } from "@/app/api/login/route";
 import { POST as logout } from "@/app/api/logout/route";
 import { POST as preview } from "@/app/api/preview/route";
 import { POST as previewShare } from "@/app/api/preview/share/route";
+import { POST as sections } from "@/app/api/sections/route";
+import { PUT as sectionUpdate, DELETE as sectionDelete } from "@/app/api/sections/[id]/route";
 
 const EVIL = "https://evil.example.com";
 // The request arrives at OUR server (its own host is the trusted origin,
@@ -32,6 +34,8 @@ function forgedRequest(path: string): Request {
   });
 }
 
+const sectionCtx = { params: Promise.resolve({ id: "notes-list" }) };
+
 const routes: Array<[string, (req: Request) => Promise<Response>, string]> = [
   ["POST /api/publish", publish, "/api/publish"],
   ["POST /api/settings/runtime", runtime, "/api/settings/runtime"],
@@ -43,6 +47,9 @@ const routes: Array<[string, (req: Request) => Promise<Response>, string]> = [
   ["POST /api/logout", logout, "/api/logout"],
   ["POST /api/preview", preview, "/api/preview"],
   ["POST /api/preview/share", previewShare, "/api/preview/share"],
+  ["POST /api/sections", sections, "/api/sections"],
+  ["PUT /api/sections/[id]", (req) => sectionUpdate(req, sectionCtx), "/api/sections/notes-list"],
+  ["DELETE /api/sections/[id]", (req) => sectionDelete(req, sectionCtx), "/api/sections/notes-list"],
 ];
 
 describe("CSRF: mutating admin routes reject forged cross-origin requests", () => {
