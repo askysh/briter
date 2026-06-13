@@ -15,10 +15,15 @@ FROM oven/bun:1 AS runtime
 WORKDIR /app
 ENV NODE_ENV=production
 # The git-sync worker shells out to `git` (and pushes over SSH), neither of
-# which ships in the base bun image.
+# which ships in the base bun image. A uid-1001 user with a real passwd entry
+# and HOME is also required: the container runs as 1001 and SSH aborts with
+# "No user exists for uid 1001" if getpwuid() can't resolve it.
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends git openssh-client \
-    && rm -rf /var/lib/apt/lists/*
+    && apt-get install -y --no-install-recommends git openssh-client ca-certificates \
+    && rm -rf /var/lib/apt/lists/* \
+    && groupadd -g 1001 briter \
+    && useradd -u 1001 -g 1001 -m -d /home/briter -s /usr/sbin/nologin briter
+ENV HOME=/home/briter
 COPY --from=build /app/.next/standalone ./
 COPY --from=build /app/.next/static ./.next/static
 COPY --from=build /app/content ./content
