@@ -125,34 +125,42 @@ export function SectionsManager({
   }
 
   return (
-    <main className="page-shell">
-      <section className="panel section-stack">
-        <h1>Sections</h1>
-        <p className="tiny">
-          Sections decide which notes appear, and in what order, on a route the
-          site renders. They are content config — not pages. Publishing a
-          section syncs its <code>content/sections/&lt;id&gt;.json</code> file
-          through the normal queue.
-        </p>
+    <div className="section-stack">
+      <section className="panel section-stack" style={{ padding: "1.4rem" }}>
+        <div>
+          <h1 className="page-title">Sections</h1>
+          <p className="page-subtitle">
+            Sections decide which notes appear, and in what order, on a route the
+            site renders. They are content config — not pages. Publishing a
+            section syncs its <code>content/sections/&lt;id&gt;.json</code> file
+            through the normal queue.
+          </p>
+        </div>
 
         {error && (
-          <p className="tiny" style={{ color: "var(--accent-strong, crimson)" }}>
+          <p className="tiny" style={{ color: "var(--briter-accent-strong, crimson)" }}>
             {error}
           </p>
         )}
 
-        <div className="section-stack" style={{ gap: "0.5rem" }}>
-          <label className="tiny" htmlFor="new-section-id">
+        <div className="field">
+          <label htmlFor="new-section-id">
             New section id (lowercase, hyphenated)
           </label>
           <div style={{ display: "flex", gap: "0.5rem" }}>
             <input
               id="new-section-id"
+              style={{ flex: 1 }}
               value={newId}
               placeholder="e.g. essays"
               onChange={(event) => setNewId(event.target.value)}
             />
-            <button type="button" onClick={create} disabled={pending || !newId.trim()}>
+            <button
+              type="button"
+              className="button button-primary"
+              onClick={create}
+              disabled={pending || !newId.trim()}
+            >
               Create
             </button>
           </div>
@@ -169,7 +177,7 @@ export function SectionsManager({
           disabled={pending}
         />
       ))}
-    </main>
+    </div>
   );
 }
 
@@ -216,10 +224,13 @@ function SectionCard({
   const availableToAdd = noteOptions.filter((n) => !draft.slugs.includes(n.slug));
 
   return (
-    <section className="panel section-stack">
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
+    <section className="panel section-stack" style={{ padding: "1.4rem" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "1rem" }}>
         <h2 style={{ margin: 0 }}>{section.id}</h2>
-        <label className="tiny" style={{ display: "flex", gap: "0.35rem", alignItems: "center" }}>
+        <label
+          className="tiny"
+          style={{ display: "flex", gap: "0.4rem", alignItems: "center", textTransform: "none", letterSpacing: 0 }}
+        >
           <input
             type="checkbox"
             checked={draft.enabled}
@@ -229,79 +240,89 @@ function SectionCard({
         </label>
       </div>
 
-      <div className="section-stack" style={{ gap: "0.75rem" }}>
-        <label className="tiny">
-          Type
+      <div className="section-stack">
+        <div className="field">
+          <label>Type</label>
           <select value={draft.type} onChange={(e) => set("type", e.target.value as SectionType)}>
             <option value="list">list (collection)</option>
             <option value="highlight">highlight (single item)</option>
           </select>
-        </label>
+        </div>
 
         {draft.type === "list" && (
-          <label className="tiny">
-            Bound page route
+          <div className="field">
+            <label>Bound page route</label>
             <input
               value={draft.page}
               placeholder="/notes"
               onChange={(e) => set("page", e.target.value)}
             />
-          </label>
+          </div>
         )}
 
-        <label className="tiny">
-          Source
+        <div className="field">
+          <label>Source</label>
           <select value={draft.source} onChange={(e) => set("source", e.target.value as SectionSource)}>
             <option value="all">all notes</option>
             <option value="tag">by tag</option>
             <option value="manual">manual membership</option>
           </select>
-        </label>
+        </div>
 
         {draft.source === "tag" && (
-          <label className="tiny">
-            Tag
+          <div className="field">
+            <label>Tag</label>
             <input value={draft.tag} onChange={(e) => set("tag", e.target.value)} />
-          </label>
+          </div>
         )}
 
-        <label className="tiny">
-          Order
+        <div className="field">
+          <label>Order</label>
           <select value={draft.order} onChange={(e) => set("order", e.target.value as SectionOrder)}>
             <option value="published-desc">newest first</option>
             <option value="published-asc">oldest first</option>
             <option value="manual">manual order</option>
           </select>
-        </label>
+        </div>
 
-        <label className="tiny">
-          Count {draft.type === "highlight" ? "(usually 1)" : "(cap, optional)"}
+        <div className="field">
+          <label>Count {draft.type === "highlight" ? "(usually 1)" : "(cap, optional)"}</label>
           <input
             type="number"
             min={1}
             value={draft.count}
             onChange={(e) => set("count", e.target.value)}
           />
-        </label>
+        </div>
 
         {draft.source === "manual" && (
-          <div className="section-stack" style={{ gap: "0.35rem" }}>
-            <span className="tiny">Manual membership (drag-free reorder)</span>
+          <div className="field">
+            <label>Manual membership (drag-free reorder)</label>
             {draft.slugs.length === 0 && <span className="tiny">No notes selected.</span>}
             {draft.slugs.map((slug, index) => (
               <div key={slug} style={{ display: "flex", gap: "0.4rem", alignItems: "center" }}>
-                <button type="button" onClick={() => moveSlug(index, -1)} disabled={index === 0}>
+                <button
+                  type="button"
+                  className="button button-ghost"
+                  onClick={() => moveSlug(index, -1)}
+                  disabled={index === 0}
+                >
                   ↑
                 </button>
                 <button
                   type="button"
+                  className="button button-ghost"
                   onClick={() => moveSlug(index, 1)}
                   disabled={index === draft.slugs.length - 1}
                 >
                   ↓
                 </button>
                 <span style={{ flex: 1 }}>{slug}</span>
-                <button type="button" onClick={() => removeSlug(slug)}>
+                <button
+                  type="button"
+                  className="button button-ghost"
+                  onClick={() => removeSlug(slug)}
+                >
                   remove
                 </button>
               </div>
@@ -326,11 +347,21 @@ function SectionCard({
         )}
       </div>
 
-      <div style={{ display: "flex", gap: "0.5rem" }}>
-        <button type="button" onClick={() => onSave(draft)} disabled={disabled}>
+      <div className="button-row">
+        <button
+          type="button"
+          className="button button-primary"
+          onClick={() => onSave(draft)}
+          disabled={disabled}
+        >
           Save &amp; publish
         </button>
-        <button type="button" onClick={() => onRemove(section.id)} disabled={disabled}>
+        <button
+          type="button"
+          className="button button-ghost"
+          onClick={() => onRemove(section.id)}
+          disabled={disabled}
+        >
           Delete
         </button>
       </div>

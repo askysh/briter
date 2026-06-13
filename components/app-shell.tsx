@@ -8,7 +8,7 @@ const NAV_ITEMS = [
   { href: "/write/new", label: "New Post" },
   { href: "/sections", label: "Sections" },
   { href: "/settings", label: "Settings" },
-  { href: "/docs/local-development", label: "Docs", prefix: "/docs" },
+  { href: "/docs/getting-started", label: "Docs", prefix: "/docs" },
 ];
 
 const PUBLIC_PREFIXES = ["/login", "/setup", "/posts", "/preview"];
