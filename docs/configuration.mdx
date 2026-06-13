@@ -1,0 +1,150 @@
+---
+title: "Configuration Reference"
+description: "Every environment variable, what lives in config.json vs secrets.json, file paths, volumes, and ports — the single page a self-hoster needs."
+order: 1
+category: "configuration"
+---
+
+# Configuration Reference
+
+This is the complete reference for configuring a Briter instance: every environment variable, the two state files (`config.json` and `secrets.json`), the file paths and Docker volumes Briter uses, and the network port it listens on.
+
+Briter resolves its runtime configuration in three layers, lowest priority first:
+
+1. **Built-in defaults** — hardcoded in `lib/config/runtime-config.ts`.
+2. **`storage/config.json`** — written by the [setup wizard](setup-wizard) and the settings UI.
+3. **Environment variables** — override both of the above for any key they set.
+
+A value set in `config.json` overrides the default; an environment variable overrides `config.json`. Unset environment variables are ignored (they never clobber a `config.json` value with `undefined`).
+
+For most installs you do not need to set any environment variables — the setup wizard writes everything into `config.json`. Environment variables exist for container orchestration, headless/agent installs, and overriding paths in non-standard layouts.
+
+## Environment variables
+
+Every variable below is read in `lib/config/env.ts` / `lib/config/runtime-config.ts` (runtime config) or in the worker entrypoint `scripts/run-git-sync-worker.mjs` (worker-only). Names, defaults, and effects are taken directly from those files.
+
+### Core / paths
+
+| Variable | Default | What it does |
+|---|---|---|
+| `BRITER_APP_ROOT` | current working directory (`/app` in Docker) | Base directory all other relative paths resolve against. Do not change inside the official Docker image. |
+| `BRITER_CONTENT_ROOT` | `<appRoot>/content/posts` | Directory holding post `.mdx`/`.md` files. |
+| `BRITER_SECTIONS_ROOT` | `<appRoot>/content/sections` | Directory holding [section](sections) definition JSON files. |
+| `BRITER_UPLOAD_ROOT` | `<appRoot>/storage/uploads/posts` | Directory where processed image variants and manifests are stored. |
+| `BRITER_QUEUE_ROOT` | `<appRoot>/storage/queue` | Directory where the web app writes git-sync job files and the worker reads them. |
+| `PORT` | `3075` | TCP port the Next.js server listens on. |
+| `NODE_ENV` | (set by the runtime) | When `production`, the session cookie gets `Secure`, HSTS is sent, and the CSP drops `'unsafe-eval'`. See [Security](security). |
+
+### Site identity
+
+These have no effect when the [git-target adapter](adapters) is active and the external site renders its own metadata; they drive the built-in reader.
+
+| Variable | Default | What it does |
+|---|---|---|
+| `BRITER_SITE_NAME` | `Briter` | Site name shown in the reader header and RSS title. |
+| `BRITER_SITE_DESCRIPTION` | `A small, opinionated writing app.` | Meta description and RSS feed description. |
+| `BRITER_SITE_AUTHOR` | `Writer` | Author name on post pages and in RSS. |
+| `BRITER_PUBLIC_BASE_URL` | `http://localhost:3075` | Full public URL (scheme + host). Used for canonical links, OpenGraph, RSS `<link>`, **and as a trusted origin for the CSRF same-origin check** (see [Security](security)). Set this to your real domain in production. |
+| `BRITER_PUBLISHED_HREF_TEMPLATE` | `""` (empty) | Optional template for the public URL of a published post, e.g. `https://<your-domain>/notes/{slug}`. Used to build "view published" links. |
+
+### Adapter / git-target
+
+See [Adapters](adapters) for how these are used.
+
+| Variable | Default | What it does |
+|---|---|---|
+| `BRITER_SITE_ADAPTER` | `local-mdx` | Active adapter key: `local-mdx` (built-in reader) or `git-target` (push to external repo). |
+| `BRITER_GIT_WORKTREE` | `<appRoot>` | Path to the git worktree the worker stages/commits/pushes from. For git-target, this is the external site repo. |
+| `BRITER_GIT_BRANCH` | `main` | Branch the worker commits to and pushes. |
+| `BRITER_GIT_REMOTE` | `origin` | Git remote the worker pushes to. |
+| `BRITER_GIT_AUTHOR_NAME` | `Briter` | `git` author name on sync commits. |
+| `BRITER_GIT_AUTHOR_EMAIL` | `briter@example.invalid` | `git` author email on sync commits. |
+| `BRITER_UPLOAD_ROUTE_BASE` | `/uploads` | URL path prefix the built-in reader serves uploaded assets under. |
+
+### Worker tuning
+
+See [Worker & queue](worker) for the full model.
+
+| Variable | Default | What it does |
+|---|---|---|
+| `BRITER_WORKER_DRY_RUN` | `true` | When truthy, the worker performs every step **except** the real `git push`. Set to `false` (or `0`/`no`) to publish for real. Booleans parse `0`/`false`/`no` as false; everything else is true. |
+| `BRITER_WORKER_POLL_INTERVAL_MS` | `5000` | Interval (ms) between worker polls of the queue. |
+| `BRITER_WORKER_MAX_ATTEMPTS` | `8` | Maximum delivery attempts before a job is dead-lettered (status `failed`) instead of retried forever. |
+| `BRITER_WORKER_LOCK_STALE_MS` | `60000` | Age (ms) after which `storage/worker.lock` is treated as abandoned and reclaimed, even if its PID still appears alive (guards against PID reuse). Read by the worker entrypoint. |
+| `BRITER_WORKER_RUN_ONCE` | unset | When `1`, the worker drains the queue once and exits instead of looping. Used by `bun run worker:once`. |
+
+### Storage budget
+
+See [Storage & uploads](storage).
+
+| Variable | Default | What it does |
+|---|---|---|
+| `BRITER_UPLOAD_STORAGE_LIMIT_BYTES` | `524288000` (500 MB) | Provisioned upload cap in bytes. Uploads are rejected at 100% and when a new file would cross 95% of this cap (`UploadLimitError`). |
+
+### Setup state
+
+| Variable | Default | What it does |
+|---|---|---|
+| `BRITER_CONFIGURED` | unset | Read as a fallback `configured` flag (`"1"` means configured). In normal operation the authoritative flag is `configured` inside `config.json`; this env var is only a resolution input. |
+
+> **Intentionally omitted from this table:** none. Every key in `resolveBriterEnv()` (`lib/config/env.ts`) and every env var the worker entrypoint reads is listed above. The single derived field `appRoot` is the resolved value of `BRITER_APP_ROOT`, not a separate variable.
+
+## State files
+
+Briter keeps exactly two structured-state files. Everything else (posts, images, sections) is plain content files. There is **no database** — see [Architecture](architecture).
+
+### `storage/config.json` (safe to read)
+
+Written by the setup wizard and the settings API via `saveRuntimeConfig()`. It holds the same keys as the runtime config (site identity, adapter selection and git settings, worker tuning, upload cap, and the `configured` flag). It contains **no secrets** and is readable (mode `0644` is fine).
+
+### `storage/secrets.json` (0600, never logged)
+
+Written by `saveSecrets()` (`lib/config/secrets.ts`), which `chmod`s the file to `0600` on POSIX systems after every write. It holds only:
+
+| Key | Contents |
+|---|---|
+| `adminPasswordHash` | bcrypt hash (cost factor 12) of the admin password. |
+| `sessionSecret` | Per-instance HMAC secret used to sign session cookies. |
+| `totpSecret` | TOTP seed, present only if two-factor is enabled. |
+
+The plaintext password and the TOTP seed are **never** written to `config.json`, environment variables, or logs. This separation is mandated by the [Constitution](https://github.com/askysh/briter/blob/main/CONSTITUTION.md) ("Secrets isolation"). On non-POSIX hosts where `chmod` is a no-op (e.g. some Docker-on-Windows setups), make sure the volume holding `secrets.json` is not world-readable.
+
+Both files live under `storage/`, which is gitignored. **Never commit `storage/`.**
+
+## File paths and Docker volumes
+
+Paths are resolved by `resolveBriterPaths()` (`lib/config/paths.ts`) relative to `BRITER_APP_ROOT` (default `/app` in Docker):
+
+```
+<appRoot>/
+├── content/
+│   ├── posts/        # post .mdx/.md files          (BRITER_CONTENT_ROOT)
+│   └── sections/     # section definition JSON       (BRITER_SECTIONS_ROOT)
+└── storage/
+    ├── config.json   # runtime config (0644)
+    ├── secrets.json  # secrets (0600)
+    ├── queue/        # git-sync job files            (BRITER_QUEUE_ROOT)
+    ├── worker.lock   # single-flight worker lock (PID + mtime)
+    └── uploads/
+        └── posts/    # image variants + manifests    (BRITER_UPLOAD_ROOT)
+```
+
+Two volumes hold all persistent state — mount both outside the image so updates never touch your data:
+
+```yaml
+volumes:
+  - ./storage:/app/storage   # config, secrets, queue, lock, uploads
+  - ./content:/app/content   # posts and sections
+```
+
+When using the git-target adapter you also mount the external repo and SSH credentials — see [Docker](docker) and [Adapters](adapters).
+
+## Ports
+
+Briter listens on a single HTTP port, `PORT` (default **3075**). Put a TLS-terminating reverse proxy ([nginx](https://nginx.org/en/docs/), [Caddy](https://caddyserver.com/docs/)) in front of it; only the proxy should be able to reach `3075`. See the production checklist in [Docker](docker).
+
+## Headless / agent configuration
+
+Every value the wizard collects can be pre-seeded through environment variables (for the runtime-config keys above) and the `/api/setup` endpoint (for the password and TOTP, which become `secrets.json`). This is what makes Briter agent-installable per the [Constitution](https://github.com/askysh/briter/blob/main/CONSTITUTION.md). See [Setup Wizard](setup-wizard) for the wizard flow.
+</content>
+</invoke>

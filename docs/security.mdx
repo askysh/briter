@@ -13,11 +13,11 @@ Briter is a single-user application. Its security model is designed for one trus
 
 **Password** — bcrypt-hashed with a work factor of 12. The plain-text password is never written to disk or logged.
 
-**Session** — an HTTP-only, Secure, SameSite=Strict cookie signed with a per-instance secret stored in `storage/secrets.json`. Sessions do not expire by default; logging out clears the cookie.
+**Session** — an `HttpOnly`, `SameSite=Lax` cookie named `briter_session`, marked `Secure` in production (`NODE_ENV=production`). The token is an HMAC-SHA256 signature over an issued-at timestamp, signed with a per-instance secret stored in `storage/secrets.json`. Sessions expire **7 days** after issue (both the cookie `maxAge` and the token's own validity window); logging out clears the cookie.
 
 **TOTP** — optional 6-digit TOTP (RFC 6238). When enabled, the login form shows a TOTP field after the password. The TOTP secret is stored in `storage/secrets.json`.
 
-**Rate limiting** — five failed login attempts per 15-minute window. The counter resets on successful login.
+**Rate limiting** — login attempts are throttled at **8 failed attempts per 10-minute window** (`lib/auth/rate-limit.ts`). The counter resets on successful login.
 
 ## Secrets storage
 
@@ -36,7 +36,20 @@ Two files under `storage/`:
 
 Next.js middleware runs at the edge and checks for a valid session cookie on all non-public routes. Public routes (reader, RSS, sitemap, health check) pass through without authentication.
 
-The cookie check at the edge is a presence check only. Full session verification happens in each route handler via `requireAdmin()`. This is an intentional two-stage model: the edge check is fast (no I/O), the handler check is authoritative.
+The cookie check at the edge is a presence check only. Full session verification happens in each route handler via `requireAdmin()`. This is an intentional two-stage model: the edge check is fast (no I/O), the handler check is authoritative. See [ADR 001](../decisions/001-middleware-proxy) for why `middleware.ts` (not an instrumentation-based approach) gates auth.
+
+## CSRF protection
+
+Every **mutating** admin request (`POST`/`PUT`/`PATCH`/`DELETE`) is protected by a same-origin check layered on top of the `SameSite=Lax` session cookie. The shared helper `enforceSameOrigin(request)` (`lib/auth/csrf.ts`):
+
+1. Lets safe methods (`GET`/`HEAD`/`OPTIONS`) pass through untouched.
+2. Reads the request `Origin` header (falling back to the `Referer`'s origin).
+3. Compares it against the trusted origins — the request's own host (honoring `x-forwarded-host`/`x-forwarded-proto` from a reverse proxy) **and** the configured `BRITER_PUBLIC_BASE_URL`.
+4. Rejects mismatches — and unsafe requests that send *no* `Origin`/`Referer` — with `403 { "error": "Cross-origin request blocked" }`.
+
+`requireAdminMutation(request)` composes this with `requireAdmin()`, so a new mutating route opts into both session auth and CSRF protection in one line. The browser sets `Origin` automatically and scripts cannot forge it, which makes this a sound CSRF defense for a cookie-session app without a token lifecycle.
+
+This is why deployments behind a reverse proxy **must** set `BRITER_PUBLIC_BASE_URL` to the public URL — it is a trusted origin for the check. The full rationale and rejected alternatives (double-submit token, `SameSite=Strict` alone) are in [ADR 002: CSRF Posture](../decisions/002-csrf-posture).
 
 ## Image uploads
 
@@ -47,7 +60,7 @@ The cookie check at the edge is a presence check only. Full session verification
 
 ## Content Security Policy
 
-A restrictive CSP is set in `next.config.ts`. It allows scripts and styles only from the same origin and explicitly forbids inline scripts. Adjust it in `next.config.ts` if your theme requires a CDN.
+A restrictive [Content Security Policy](https://developer.mozilla.org/en-US/docs/Web/HTTP/Guides/CSP) is set in `next.config.ts` (`default-src 'self'`). Scripts and styles are limited to the same origin (`'unsafe-inline'` is allowed; `'unsafe-eval'` is permitted only in development for React's debugging features and is dropped in production). `object-src` is `'none'`, `frame-ancestors` is `'none'`, and `base-uri`/`form-action` are `'self'`. Alongside it, `next.config.ts` sets `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, a `Referrer-Policy`, a `Permissions-Policy`, and — in production — HSTS. Adjust the CSP in `next.config.ts` if your theme requires a CDN.
 
 ## Responsible disclosure
 

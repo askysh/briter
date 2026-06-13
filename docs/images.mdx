@@ -30,9 +30,9 @@ All EXIF metadata is removed before saving, including GPS coordinates, camera ma
 
 ## Storage budget
 
-You can set a storage cap in Settings. When total upload size reaches 95% of the cap, Briter rejects new uploads with an `UploadLimitError` and shows a warning in the editor.
+You can set a storage cap in Settings (default 500 MB). When a new upload would cross 95% of the cap — or exceed it outright — Briter rejects it with an `UploadLimitError`. The setup wizard senses real free disk to propose the cap.
 
-Check current usage on the dashboard — a storage bar shows used vs. cap.
+Check current usage on the dashboard — a storage bar shows used vs. cap, alongside physical free disk. See [Storage & uploads](storage) for the full provisioning model.
 
 To remove old uploads, delete the variant files from `storage/uploads/` and the corresponding manifest. Briter does not yet have a media library manager (planned for v1.1).
 

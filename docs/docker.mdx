@@ -27,7 +27,7 @@ Runs `bun run start` (Next.js standalone server). Handles all HTTP traffic, the 
 
 ### worker
 
-Runs `bun run worker`. Processes the queue: stages, commits, and pushes content. Restarts automatically on failure.
+Runs `bun run worker`. Processes the queue: stages, commits, and pushes content. Restarts automatically on failure. See [Worker & Queue](worker) for the single-flight lock, retry backoff, and dead-lettering. The runtime image installs `git` and `openssh-client` and runs as a non-root user (uid 1001) so SSH-based git push works and `secrets.json`'s `0600` ownership is honored.
 
 Both services mount the same volumes so file paths resolve from both sides.
 
@@ -35,11 +35,11 @@ Both services mount the same volumes so file paths resolve from both sides.
 
 ```yaml
 volumes:
-  - ./storage:/app/storage   # config, secrets, queue, uploads
-  - ./content:/app/content   # post files
+  - ./storage:/app/storage   # config, secrets, queue, worker.lock, uploads
+  - ./content:/app/content   # posts and section definitions
 ```
 
-**Keep `./storage` and `./content` outside the image.** They contain your data. The image is stateless.
+**Keep `./storage` and `./content` outside the image.** They contain your data. The image is stateless. The shared `./storage` volume is also how the `web` and `worker` services hand off the queue and the worker lock — see [Configuration Reference](configuration) for the full path layout.
 
 For the git-target adapter, also mount the external repo:
 
@@ -53,19 +53,27 @@ volumes:
 
 ## Environment variables
 
+The variables most relevant to a container deployment:
+
 | Variable | Default | Description |
 |---|---|---|
 | `PORT` | `3075` | HTTP port |
 | `BRITER_APP_ROOT` | `/app` | App root (do not change) |
-| `BRITER_WORKER_DRY_RUN` | `false` | Set `true` to disable git push |
+| `BRITER_PUBLIC_BASE_URL` | `http://localhost:3075` | Public URL; **required** behind a proxy — it's a trusted origin for the [CSRF check](security). |
+| `BRITER_WORKER_DRY_RUN` | `true` | The worker skips the real `git push` while truthy. Set to `false` to publish for real. |
+| `BRITER_WORKER_MAX_ATTEMPTS` | `8` | Delivery attempts before a job is dead-lettered. |
+| `BRITER_WORKER_LOCK_STALE_MS` | `60000` | Age after which `storage/worker.lock` is reclaimed. |
+| `BRITER_UPLOAD_STORAGE_LIMIT_BYTES` | `524288000` | Provisioned upload cap (500 MB). |
 
-All other configuration is written by the setup wizard into `storage/config.json`.
+`BRITER_WORKER_DRY_RUN` defaults to **`true`**, so a fresh deployment will not push until you set it to `false`. The full list of every variable, with defaults, is in the [Configuration Reference](configuration). All other configuration is written by the setup wizard into `storage/config.json`.
 
 ## Production checklist
 
-- [ ] Set up a reverse proxy (nginx, Caddy) in front of port 3075 with TLS
+- [ ] Set up a reverse proxy ([nginx](https://nginx.org/en/docs/), [Caddy](https://caddyserver.com/docs/)) in front of port 3075 with TLS
+- [ ] Set `BRITER_PUBLIC_BASE_URL` to your public URL (required for preview links and the CSRF same-origin check)
 - [ ] Mount `storage/` on persistent storage (not a tmpfs)
-- [ ] Add SSH credentials for git push if using the git-target adapter
+- [ ] Add SSH credentials for git push if using the [git-target adapter](adapters)
+- [ ] Set `BRITER_WORKER_DRY_RUN=false` once you've verified the worker
 - [ ] Set a custom `PORT` if 3075 conflicts with other services
 - [ ] Configure a firewall: only the reverse proxy should reach port 3075
 

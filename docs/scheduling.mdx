@@ -1,0 +1,64 @@
+---
+title: "Scheduling & Archiving"
+description: "Schedule posts for a future instant, hold them out of git until then, and reversibly archive published posts without deleting files."
+order: 4
+category: "writing"
+---
+
+# Scheduling & Archiving
+
+Beyond the basic draft/publish flow ([Writing & Publishing](editor)), Briter supports **scheduling** a post to go live at a future instant and **archiving** a published post out of public view without deleting anything.
+
+## Post status
+
+A post's status is *derived* from its frontmatter at read time (`derivePostStatus`, `lib/content/post-document.ts`), in this precedence order:
+
+1. `archived: true` → **archived** (wins over everything).
+2. `draft: true` → **draft**.
+3. `publishedAt` is in the future → **scheduled**.
+4. otherwise → **published**.
+
+Status is never stored as a separate field — flip the frontmatter and the status follows.
+
+## Scheduling
+
+Set `publishedAt` to a **full ISO-8601 datetime** in the future to schedule a post:
+
+```yaml
+---
+title: My Announcement
+publishedAt: 2026-07-01T09:00:00.000Z
+draft: false
+---
+```
+
+When you save a scheduled post, Briter enqueues a git-sync job whose `scheduledFor` equals that `publishedAt` instant. The [worker](worker) holds the job — `listDue()` only returns jobs whose `scheduledFor` has arrived — so **nothing reaches git or git history before the publish instant**. The post is not committed, not pushed, and not visible on the public site until then.
+
+A date-only `publishedAt` (e.g. `2026-07-01`) is interpreted as midnight UTC; for precise timing use a full datetime with a timezone offset or `Z`.
+
+Editing a scheduled post re-enqueues it. Thanks to [per-slug dedup](worker), the previous pending job is discarded, so only the latest version fires.
+
+### Scheduled view
+
+The dashboard's **Scheduled** tab lists posts being held in the queue, soonest first, via `queue.listScheduled()` (surfaced by `GET /api/queue`). Each entry shows the slug and its publish instant.
+
+## Archiving
+
+Archiving removes a published post from the public site **without deleting the file**. It is fully reversible.
+
+- Archiving sets `archived: true` in the post's frontmatter. The `.mdx` file stays on disk; the public site hides the post (`derivePostStatus` returns `archived`, which the reader filters out).
+- Un-archiving clears the flag. The post falls back through the normal draft → scheduled → published classification, so a previously published post becomes public again exactly as it was.
+
+The file is **never deleted** by archive or un-archive — only re-saved with the flag flipped (`app/api/posts/[slug]/archive`). Because an archived post is not a future-scheduled state, the change syncs immediately: the worker pushes the updated file and the site drops the post on its next render.
+
+This mirrors the [Constitution](https://github.com/askysh/briter/blob/main/CONSTITUTION.md)'s portability guarantee — your content is files you own; Briter hides, it does not destroy.
+
+## Frontmatter summary
+
+| Field | Type | Effect |
+|---|---|---|
+| `publishedAt` | ISO-8601 datetime | Future instant → scheduled; past/now → published. |
+| `draft` | boolean | `true` → never surfaced publicly, regardless of date. |
+| `archived` | boolean | `true` → hidden from the public site; reversible. Absent on posts never archived. |
+</content>
+</invoke>

@@ -1,0 +1,68 @@
+---
+title: "Sections"
+description: "JSON-defined highlight and list sections that bind posts to site routes — the generic replacement for hardcoded homepage/featured logic."
+order: 6
+category: "publishing"
+---
+
+# Sections
+
+A **section** declares *which* posts appear and *in what order* on a route the site already renders — for example, the newest-first list on `/notes` or the single highlighted note on the homepage. Sections are content **configuration**, not pages: Briter never builds or styles a page. That stays true to the [Constitution](https://github.com/askysh/briter/blob/main/CONSTITUTION.md) ("Not a page builder").
+
+Sections replace the older site-specific hardcoded homepage/featured logic with a generic, portable mechanism. Manage them in the admin UI at `/sections`.
+
+## How sections are stored
+
+Each section is one JSON file under `content/sections/` (`BRITER_SECTIONS_ROOT`), named `<id>.json`. These files ride the existing git-sync — `content/` is already on every adapter's allowed-path list (see [Adapters](adapters)) — so publishing a section change needs no adapter change. The shape is the **locked contract** shared byte-for-byte between Briter (which authors sections) and the external site (which reads and renders them); it is defined in `lib/sections/types.ts`.
+
+## Section shape
+
+| Field | Type | Notes |
+|---|---|---|
+| `id` | string | Unique identifier; also the filename. |
+| `type` | `highlight` \| `list` | `highlight` features a small number (usually one); `list` renders many. |
+| `enabled` | boolean | Whether the site renders the section. |
+| `page` | string | **Required for `list`** — the route the list renders on (e.g. `/notes`). A `highlight` is placed by the site (e.g. the homepage) and may omit it. |
+| `source` | `all` \| `tag` \| `manual` | Where members come from. |
+| `tag` | string | Used when `source: tag`. |
+| `slugs` | string[] | Used when `source: manual` — explicit membership **and** order. |
+| `order` | `published-desc` \| `published-asc` \| `manual` | Sort order; `manual` follows `slugs`. |
+| `count` | number | Optional cap. Highlight: usually 1. List: omit for uncapped. |
+
+## Built-in defaults
+
+Two sections ship with both Briter and the site, so a fresh install renders correctly with **zero configuration** (`BUILT_IN_SECTIONS` in `lib/sections/types.ts`). They are surfaced even before any file exists on disk; editing one writes a real JSON file that then overrides the in-memory default.
+
+**`notes-list`** — the default `/notes` list, newest-first:
+
+```json
+{
+  "id": "notes-list",
+  "type": "list",
+  "enabled": true,
+  "page": "/notes",
+  "source": "all",
+  "order": "published-desc"
+}
+```
+
+**`homepage-latest`** — the homepage highlight, auto-tracking the latest note:
+
+```json
+{
+  "id": "homepage-latest",
+  "type": "highlight",
+  "enabled": true,
+  "source": "all",
+  "order": "published-desc",
+  "count": 1
+}
+```
+
+By default the homepage highlight auto-tracks the newest note (`count: 1`, newest-first). Setting `source: "manual"` plus `slugs` pins a specific note; clearing the pin falls back to the auto-latest behaviour. This is the generic replacement for the legacy `_featured.json`, consistent with the project's decision log ("No `_featured.json` porting").
+
+## Editing sections
+
+Use `/sections` in the admin. Saving a section writes its JSON file to `content/sections/` and enqueues a git-sync job (publishing is the [queue](worker)'s job, not the store's), so the change reaches the site through the same pipeline as a post.
+</content>
+</invoke>

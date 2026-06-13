@@ -19,33 +19,23 @@ No additional configuration required.
 
 ## git-target
 
-Briter pushes content into a separate git repository — a sibling Next.js, Astro, Hugo, or any static site. Briter's `/posts` redirects to the external site's URL. Briter is the editor; your existing site is the reader.
+Briter pushes content into a separate git repository — a sibling static site — instead of serving it itself. Briter is the editor; your existing site is the reader.
 
 **Use this when:** You already have a site and want to keep its frontend while gaining Briter's writing experience.
 
-**Configuration:**
+**Configuration.** The git-target adapter writes posts as `.mdx` files. Where it commits and pushes is governed by the worktree/branch/remote runtime config (set in the wizard's git step or via environment variables — see the [Configuration Reference](configuration)):
 
-| Setting | Description |
-|---|---|
-| Worktree path | Absolute path to the external repo on the same filesystem |
-| Content subpath | Where posts go (e.g. `content/notes`) |
-| Upload subpath | Where images go (e.g. `public/uploads/notes`) |
-| Content extension | `.mdx` or `.md` |
-| Frontmatter preset | `next-mdx`, `astro`, or `hugo` |
-| Published URL template | e.g. `https://mysite.com/notes/{slug}` |
-| Revalidate webhook | Optional: URL to POST after each push (for ISR) |
+| Setting | Env var | Description |
+|---|---|---|
+| Worktree path | `BRITER_GIT_WORKTREE` | Absolute path to the external repo on the same filesystem |
+| Branch | `BRITER_GIT_BRANCH` | Branch the worker commits to and pushes (default `main`) |
+| Remote | `BRITER_GIT_REMOTE` | Remote the worker pushes to (default `origin`) |
+| Commit author | `BRITER_GIT_AUTHOR_NAME` / `BRITER_GIT_AUTHOR_EMAIL` | Identity on sync commits |
+| Published URL template | `BRITER_PUBLISHED_HREF_TEMPLATE` | e.g. `https://<your-domain>/notes/{slug}`, used to build "view published" links |
 
-**Path security:** The git-sync worker validates every file path against the adapter's allowed-path list before staging. Files outside the declared subpaths are never committed.
+**Path security.** Before staging, the git-sync worker validates every file path against the adapter's allowed-path list (`getAllowedPaths()`). The git-target adapter permits only paths under `content/` and `public/uploads/`; anything outside is never committed. See [Worker & Queue](worker) for how validation fits into job processing.
 
-**Revalidation:** If a revalidate webhook is set, Briter POSTs `{ slug, publishedAt }` after each successful push. Use this to trigger Next.js ISR or a static rebuild.
-
-## Frontmatter presets
-
-| Preset | Fields written |
-|---|---|
-| `next-mdx` | `title`, `publishedAt`, `summary`, `tags`, `draft` |
-| `astro` | `title`, `pubDate`, `description`, `tags`, `draft` |
-| `hugo` | `title`, `date`, `summary`, `tags`, `draft` |
+> Briter's content directory is `content/posts/` and section JSON lives under `content/sections/` — both fall under the allowed `content/` prefix, so they ride the same git-sync. See [Sections](sections).
 
 ## Switching adapters
 
@@ -53,5 +43,6 @@ Go to Settings → Adapter. Change the adapter and save. Briter rewrites `storag
 
 ## v1 constraints
 
-- The external repo must be on the same filesystem as Briter (or mounted into the same Docker volume). HTTP-based git push via the GitHub API is planned for v1.1.
+- The external repo must be on the same filesystem as Briter (or mounted into the same Docker volume). HTTP-based git push via the GitHub API is not in v1 — this is a settled [decision](https://github.com/askysh/briter/blob/main/CONSTITUTION.md) ("External worktree must be local filesystem").
 - One external repo per Briter instance.
+- The git-target adapter writes `.mdx`. Configurable per-site frontmatter presets and a revalidate webhook are not implemented today; see the [Roadmap](roadmap).

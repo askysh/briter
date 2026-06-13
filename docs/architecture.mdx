@@ -40,10 +40,13 @@ The adapter is selected at startup based on `storage/config.json`. New adapters 
 
 ### Queue + worker
 
-- `DiskJobQueue` writes JSON job files to `storage/queue/`
-- The worker process reads job files, validates paths via the adapter's allowlist, stages, commits, and pushes
-- Backoff: 1 minute → 5 minutes → 30 minutes on failure. After three failures, the job is marked `failed`
+- `DiskJobQueue` writes JSON job files to `storage/queue/`, one pending job per slug (per-slug dedup)
+- The worker process reads due job files, validates paths via the adapter's allowlist, stages, commits, and pushes
+- Backoff: 1 minute → 5 minutes → 30 minutes on failure. After `BRITER_WORKER_MAX_ATTEMPTS` (default 8) the job is dead-lettered (`failed`)
+- A single-flight lock (`storage/worker.lock`) with stale-lock recovery prevents concurrent workers
 - The web app and worker share `storage/` via the filesystem (or a Docker volume)
+
+See [Worker & Queue](worker) for the full job lifecycle, [Scheduling & archiving](scheduling) for held jobs, and [Sections](sections) for the section content config.
 
 ### Preview pipeline (`lib/preview/`)
 
@@ -59,11 +62,10 @@ The pipeline is decoupled from git and deploy concerns.
 ```
 Editor save
   → FileContentRepository.save()
-  → DiskJobQueue.enqueue({ type: 'git-sync', paths: [...] })
-  → Worker picks up job
-  → PathValidator checks paths against adapter allowlist
-  → git stage, commit, push
-  → (optional) ExternalRevalidate.notify(webhook)
+  → DiskJobQueue.enqueue({ kind: 'git-sync', postSlug, paths: [...], scheduledFor })
+  → Worker picks up the job once scheduledFor has arrived
+  → validatePaths() checks paths against adapter allowlist
+  → git stage, commit, push (skipped when BRITER_WORKER_DRY_RUN is true)
 ```
 
 ## Config and secrets

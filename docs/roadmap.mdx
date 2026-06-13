@@ -15,7 +15,11 @@ category: "project"
 - Public reader with RSS, sitemap, SEO metadata (OpenGraph, JSON-LD)
 - Image pipeline: AVIF/WebP variants, EXIF stripping, storage budget
 - Preview tokens for draft sharing (24h TTL)
-- Git-sync worker with exponential backoff, path validation, lock runner
+- Git-sync worker with exponential backoff, path validation, single-flight stale-lock runner, per-slug dedup, and max-attempt dead-lettering
+- Editorial workflow: draft → scheduled → published → archived lifecycle, with future-dated posts held out of git until the publish instant
+- Sections: JSON-defined `highlight`/`list` content config bound to site routes
+- Disk-aware storage provisioning: sensed free disk, provisioned upload cap, dashboard reporting
+- Same-origin (CSRF) checks on all mutating admin routes
 - Adapter system: `local-mdx` (built-in reader) and `git-target` (push to external site)
 - Docker Compose + CLI scaffolder install paths
 
@@ -24,7 +28,6 @@ category: "project"
 - Personal-site migration dogfood (proving git-target adapter end-to-end)
 - Media storage abstraction (disk + S3-compatible providers)
 - Markdown (.md) format support alongside MDX
-- Editorial workflow: draft → scheduled → published → archived lifecycle
 - Analytics integrations: Plausible, Umami, Google Analytics
 - One-click deploy configs for Railway, Render, Fly.io
 - Agent-installable spec for automated setup
