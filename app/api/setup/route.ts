@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import * as OTPAuth from "otpauth";
 
+import { enforceSameOrigin } from "@/lib/auth/csrf";
 import { hashPassword } from "@/lib/auth/password";
 import { loadRuntimeConfig, saveRuntimeConfig } from "@/lib/config/runtime-config";
 import { saveSecrets } from "@/lib/config/secrets";
@@ -15,6 +16,9 @@ type SetupPayload = {
 };
 
 export async function POST(request: Request) {
+  const forged = enforceSameOrigin(request);
+  if (forged) return forged;
+
   const payload = (await request.json()) as SetupPayload;
   const config = await loadRuntimeConfig();
   if (config.configured) {
