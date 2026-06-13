@@ -55,6 +55,20 @@ describe("loadRuntimeConfig", () => {
     expect(config.configured).toBe(true);
   });
 
+  test("a provisioned upload cap in config.json replaces the static 500MB default", async () => {
+    // Default cap is 500 MB; setup persists the user's chosen cap to config.
+    const provisioned = 250 * 1024 * 1024;
+    const saved = await saveRuntimeConfig(
+      { configured: true, uploadStorageLimitBytes: provisioned },
+      appRoot,
+    );
+    expect(saved.uploadStorageLimitBytes).toBe(provisioned);
+
+    const reloaded = await loadRuntimeConfig({ BRITER_APP_ROOT: appRoot });
+    expect(reloaded.uploadStorageLimitBytes).toBe(provisioned);
+    expect(reloaded.uploadStorageLimitBytes).not.toBe(500 * 1024 * 1024);
+  });
+
   test("parseBoolean handles '0', 'false', 'no' as falsy", async () => {
     for (const val of ["0", "false", "no"]) {
       const config = await loadRuntimeConfig({

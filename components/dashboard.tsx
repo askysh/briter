@@ -22,7 +22,12 @@ export function Dashboard({
 }: {
   posts: PostDocument[];
   queueSummary: { pending: number; failed: number };
-  storageUsage: { usedBytes: number; capBytes: number };
+  storageUsage: {
+    usedBytes: number;
+    capBytes: number;
+    diskFreeBytes: number | null;
+    diskTotalBytes: number | null;
+  };
 }) {
   const drafts = posts.filter((post) => post.status === "draft").length;
   const published = posts.filter((post) => post.status === "published").length;
@@ -61,6 +66,8 @@ export function Dashboard({
           <StorageUsageBar
             usedBytes={storageUsage.usedBytes}
             capBytes={storageUsage.capBytes}
+            diskFreeBytes={storageUsage.diskFreeBytes}
+            diskTotalBytes={storageUsage.diskTotalBytes}
           />
         </div>
       </div>
