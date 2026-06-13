@@ -20,6 +20,8 @@ export function resolveBriterEnv(
     appRoot,
     siteAdapterKey: source.BRITER_SITE_ADAPTER ?? "local-mdx",
     contentRoot: source.BRITER_CONTENT_ROOT ?? join(appRoot, "content/posts"),
+    sectionsRoot:
+      source.BRITER_SECTIONS_ROOT ?? join(appRoot, "content/sections"),
     uploadRoot:
       source.BRITER_UPLOAD_ROOT ?? join(appRoot, "storage/uploads/posts"),
     queueRoot: source.BRITER_QUEUE_ROOT ?? join(appRoot, "storage/queue"),

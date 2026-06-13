@@ -1,0 +1,8 @@
+{
+  "id": "homepage-latest",
+  "type": "highlight",
+  "enabled": true,
+  "source": "all",
+  "order": "published-desc",
+  "count": 1
+}

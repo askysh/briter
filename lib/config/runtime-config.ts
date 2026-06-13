@@ -8,6 +8,7 @@ export type RuntimeConfig = {
   appRoot: string;
   siteAdapterKey: string;
   contentRoot: string;
+  sectionsRoot: string;
   uploadRoot: string;
   queueRoot: string;
   gitWorktreeRoot: string;
@@ -45,6 +46,7 @@ function defaults(appRoot: string): RuntimeConfig {
     appRoot,
     siteAdapterKey: "local-mdx",
     contentRoot: paths.contentRoot,
+    sectionsRoot: paths.sectionsRoot,
     uploadRoot: paths.uploadRoot,
     queueRoot: paths.queueRoot,
     gitWorktreeRoot: appRoot,
@@ -87,6 +89,7 @@ export async function loadRuntimeConfig(
   const envConfig: PartialRuntime = {
     siteAdapterKey: source.BRITER_SITE_ADAPTER,
     contentRoot: source.BRITER_CONTENT_ROOT,
+    sectionsRoot: source.BRITER_SECTIONS_ROOT,
     uploadRoot: source.BRITER_UPLOAD_ROOT,
     queueRoot: source.BRITER_QUEUE_ROOT,
     gitWorktreeRoot: source.BRITER_GIT_WORKTREE,
@@ -135,6 +138,7 @@ export async function loadRuntimeConfig(
     uploadStorageLimitBytes:
       merged.uploadStorageLimitBytes || base.uploadStorageLimitBytes,
     contentRoot: merged.contentRoot || base.contentRoot,
+    sectionsRoot: merged.sectionsRoot || base.sectionsRoot,
     uploadRoot: merged.uploadRoot || base.uploadRoot,
     queueRoot: merged.queueRoot || base.queueRoot,
     gitWorktreeRoot: merged.gitWorktreeRoot || base.gitWorktreeRoot,
