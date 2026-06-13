@@ -121,6 +121,81 @@ describe("DiskJobQueue", () => {
     expect(fresh.id).not.toBe(stale.id);
   });
 
+  test("re-scheduling a pending post leaves one job at the new time; the old time never fires", async () => {
+    tempRoot = await mkdtemp(join(tmpdir(), "briter-queue-"));
+    const queue = new DiskJobQueue(tempRoot);
+
+    const oldTime = "2026-04-19T10:00:00.000Z";
+    const newTime = "2026-04-19T18:00:00.000Z";
+
+    await queue.enqueue({
+      kind: "git-sync",
+      postSlug: "scheduled-post",
+      paths: ["content/posts/scheduled-post.mdx"],
+      commitMessage: "first schedule",
+      scheduledFor: oldTime,
+    });
+
+    // Author edits the schedule: re-enqueue the same slug at a later time.
+    await queue.enqueue({
+      kind: "git-sync",
+      postSlug: "scheduled-post",
+      paths: ["content/posts/scheduled-post.mdx"],
+      commitMessage: "re-schedule",
+      scheduledFor: newTime,
+    });
+
+    // M1 dedup: exactly one pending job remains, carrying the new time.
+    const jobs = await queue.listAll();
+    expect(jobs).toHaveLength(1);
+    expect(jobs[0].scheduledFor).toBe(newTime);
+
+    // At a moment past the OLD time but before the NEW time, nothing is due —
+    // the original schedule never fires.
+    const atOldTime = await queue.listDue(new Date("2026-04-19T11:00:00.000Z"));
+    expect(atOldTime).toHaveLength(0);
+
+    // Once the new time arrives, the single job is due.
+    const atNewTime = await queue.listDue(new Date("2026-04-19T18:30:00.000Z"));
+    expect(atNewTime.map((job) => job.scheduledFor)).toEqual([newTime]);
+  });
+
+  test("listScheduled returns only future pending jobs, soonest first", async () => {
+    tempRoot = await mkdtemp(join(tmpdir(), "briter-queue-"));
+    const queue = new DiskJobQueue(tempRoot);
+
+    await queue.enqueue({
+      kind: "git-sync",
+      postSlug: "due-now",
+      paths: ["content/posts/due-now.mdx"],
+      commitMessage: "publish now",
+      scheduledFor: "2026-04-19T08:00:00.000Z",
+    });
+    await queue.enqueue({
+      kind: "git-sync",
+      postSlug: "later",
+      paths: ["content/posts/later.mdx"],
+      commitMessage: "schedule later",
+      scheduledFor: "2026-04-19T18:00:00.000Z",
+    });
+    await queue.enqueue({
+      kind: "git-sync",
+      postSlug: "soon",
+      paths: ["content/posts/soon.mdx"],
+      commitMessage: "schedule soon",
+      scheduledFor: "2026-04-19T12:00:00.000Z",
+    });
+
+    const scheduled = await queue.listScheduled(
+      new Date("2026-04-19T10:00:00.000Z"),
+    );
+
+    // due-now is in the past relative to "now", so it is excluded; the two
+    // future jobs come back soonest-first with their publish instants.
+    expect(scheduled.map((entry) => entry.slug)).toEqual(["soon", "later"]);
+    expect(scheduled[0].scheduledFor).toBe("2026-04-19T12:00:00.000Z");
+  });
+
   test("does not supersede jobs for a different slug", async () => {
     tempRoot = await mkdtemp(join(tmpdir(), "briter-queue-"));
     const queue = new DiskJobQueue(tempRoot);

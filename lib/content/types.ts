@@ -1,4 +1,4 @@
-export type PostStatus = "draft" | "scheduled" | "published";
+export type PostStatus = "draft" | "scheduled" | "published" | "archived";
 
 export type PostFrontmatter = {
   title: string;
@@ -6,6 +6,10 @@ export type PostFrontmatter = {
   draft: boolean;
   publishedAt?: string;
   tags: string[];
+  // Archiving keeps the .mdx file on disk but flags it so the public site
+  // hides it. Reversible: clearing the flag restores the post. Absent on
+  // posts that have never been archived.
+  archived?: boolean;
 };
 
 export type PostDocument = {
@@ -26,6 +30,12 @@ export type PostInput = {
   tags: string[];
   draft: boolean;
   publishedAt?: string;
+  archived?: boolean;
 };
 
-export type PostAction = "save-draft" | "schedule" | "publish";
+export type PostAction =
+  | "save-draft"
+  | "schedule"
+  | "publish"
+  | "archive"
+  | "unarchive";

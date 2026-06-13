@@ -85,6 +85,56 @@ describe("FileContentRepository", () => {
     expect(reloaded?.frontmatter.publishedAt).toBe(value);
   });
 
+  test("archive then un-archive: file stays on disk, status round-trips, flag clears", async () => {
+    tempRoot = await mkdtemp(join(tmpdir(), "briter-content-"));
+    const repository = new FileContentRepository(tempRoot);
+    const filePath = join(tempRoot, "live-post.mdx");
+
+    // A published post.
+    await repository.savePost({
+      slug: "live-post",
+      title: "Live Post",
+      summary: "S",
+      body: "Body.",
+      tags: [],
+      draft: false,
+      publishedAt: "2026-04-18T10:00:00.000Z",
+    });
+    expect((await repository.getPost("live-post"))?.status).toBe("published");
+
+    // Archive: same content, archived flag set.
+    const { post: archived } = await repository.savePost({
+      slug: "live-post",
+      title: "Live Post",
+      summary: "S",
+      body: "Body.",
+      tags: [],
+      draft: false,
+      publishedAt: "2026-04-18T10:00:00.000Z",
+      archived: true,
+    });
+    expect(archived.status).toBe("archived");
+    // The .mdx is still on disk and carries the flag — no git rm, reversible.
+    const archivedRaw = await readFile(filePath, "utf8");
+    expect(archivedRaw).toContain("archived: true");
+    expect(archivedRaw).toContain("Body.");
+
+    // Un-archive: flag cleared, published status restored, no residue.
+    const { post: restored } = await repository.savePost({
+      slug: "live-post",
+      title: "Live Post",
+      summary: "S",
+      body: "Body.",
+      tags: [],
+      draft: false,
+      publishedAt: "2026-04-18T10:00:00.000Z",
+      archived: false,
+    });
+    expect(restored.status).toBe("published");
+    const restoredRaw = await readFile(filePath, "utf8");
+    expect(restoredRaw).not.toContain("archived");
+  });
+
   test("preserves frontmatter keys it does not manage when saving", async () => {
     tempRoot = await mkdtemp(join(tmpdir(), "briter-content-"));
     await writeFile(join(tempRoot, "existing-note.mdx"), SITE_NOTE, "utf8");

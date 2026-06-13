@@ -12,9 +12,10 @@ export default async function AdminPage() {
   }
 
   const { repository, queue, uploads, env } = await createAppServices();
-  const [posts, queueSummary, usedBytes, disk] = await Promise.all([
+  const [posts, queueSummary, scheduled, usedBytes, disk] = await Promise.all([
     repository.listPosts(),
     queue.getSummary(),
+    queue.listScheduled(),
     uploads.getUsageBytes(),
     senseDiskUsage(env.uploadRoot),
   ]);
@@ -23,6 +24,7 @@ export default async function AdminPage() {
     <Dashboard
       posts={posts}
       queueSummary={queueSummary}
+      scheduled={scheduled}
       storageUsage={{
         usedBytes,
         capBytes: env.uploadStorageLimitBytes,

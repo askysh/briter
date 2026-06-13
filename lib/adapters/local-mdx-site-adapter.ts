@@ -9,6 +9,10 @@ function describeAction(action: PostAction) {
       return "schedule post";
     case "publish":
       return "publish post";
+    case "archive":
+      return "archive post";
+    case "unarchive":
+      return "unarchive post";
   }
 }
 

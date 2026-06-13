@@ -110,6 +110,27 @@ export class DiskJobQueue {
     await rm(this.filePathFor(id), { force: true });
   }
 
+  /**
+   * Pending jobs whose scheduledFor is still in the future, soonest first.
+   * Powers the dashboard "Scheduled" view: each entry is a post being held in
+   * the queue until its publish instant (terminal/dead-lettered jobs excluded).
+   */
+  async listScheduled(now = new Date()) {
+    const jobs = await this.listAll();
+
+    return jobs
+      .filter(
+        (job) =>
+          !isTerminal(job) &&
+          new Date(scheduleKeyFor(job)).getTime() > now.getTime(),
+      )
+      .map((job) => ({
+        slug: job.postSlug,
+        scheduledFor: scheduleKeyFor(job),
+        commitMessage: job.commitMessage,
+      }));
+  }
+
   async getSummary() {
     const jobs = await this.listAll();
     const deadLettered = jobs.filter(isTerminal);
