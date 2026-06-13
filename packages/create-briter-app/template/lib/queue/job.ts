@@ -1,5 +1,7 @@
 import { randomUUID } from "node:crypto";
 
+export type GitSyncJobStatus = "pending" | "failed";
+
 export type GitSyncJob = {
   id: string;
   kind: "git-sync";
@@ -8,6 +10,7 @@ export type GitSyncJob = {
   commitMessage: string;
   scheduledFor: string;
   nextRunAt?: string;
+  status?: GitSyncJobStatus;
   attempts: number;
   lastError?: string;
   createdAt: string;
