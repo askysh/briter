@@ -20,6 +20,8 @@ export function resolveBriterEnv(
     appRoot,
     siteAdapterKey: source.BRITER_SITE_ADAPTER ?? "local-mdx",
     contentRoot: source.BRITER_CONTENT_ROOT ?? join(appRoot, "content/posts"),
+    sectionsRoot:
+      source.BRITER_SECTIONS_ROOT ?? join(appRoot, "content/sections"),
     uploadRoot:
       source.BRITER_UPLOAD_ROOT ?? join(appRoot, "storage/uploads/posts"),
     queueRoot: source.BRITER_QUEUE_ROOT ?? join(appRoot, "storage/queue"),
@@ -34,6 +36,10 @@ export function resolveBriterEnv(
     workerDryRun: parseBoolean(source.BRITER_WORKER_DRY_RUN, true),
     workerPollIntervalMs: Number.parseInt(
       source.BRITER_WORKER_POLL_INTERVAL_MS ?? "5000",
+      10,
+    ),
+    workerMaxAttempts: Number.parseInt(
+      source.BRITER_WORKER_MAX_ATTEMPTS ?? "8",
       10,
     ),
     uploadStorageLimitBytes: Number.parseInt(
