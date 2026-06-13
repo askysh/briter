@@ -14,8 +14,9 @@ x-briter-env: &briter-env
   BRITER_GIT_AUTHOR_EMAIL: site@akashmishra.com
   BRITER_PUBLIC_BASE_URL: https://write.akashmishra.com
   BRITER_PUBLISHED_HREF_TEMPLATE: https://akashmishra.com/notes/{slug}
-  # Dry run stays ON until the end-to-end branch test is approved.
-  BRITER_WORKER_DRY_RUN: "1"
+  # End-to-end publish verified (note pushed to main, rendered live), so the
+  # worker now performs real commits and pushes.
+  BRITER_WORKER_DRY_RUN: "0"
   GIT_CONFIG_COUNT: "1"
   GIT_CONFIG_KEY_0: safe.directory
   GIT_CONFIG_VALUE_0: /opt/site-repo
