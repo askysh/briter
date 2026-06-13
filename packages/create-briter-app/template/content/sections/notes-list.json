@@ -1,0 +1,8 @@
+{
+  "id": "notes-list",
+  "type": "list",
+  "enabled": true,
+  "page": "/notes",
+  "source": "all",
+  "order": "published-desc"
+}

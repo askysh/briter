@@ -13,6 +13,16 @@ describe("resolveBriterEnv", () => {
     expect(env.queueRoot).toBe("/workspace/briter/storage/queue");
     expect(env.gitBranch).toBe("main");
     expect(env.workerDryRun).toBe(true);
+    expect(env.workerMaxAttempts).toBe(8);
+  });
+
+  test("respects an explicit worker max-attempts cap", () => {
+    const env = resolveBriterEnv({
+      BRITER_APP_ROOT: "/workspace/briter",
+      BRITER_WORKER_MAX_ATTEMPTS: "3",
+    });
+
+    expect(env.workerMaxAttempts).toBe(3);
   });
 
   test("respects explicit overrides", () => {

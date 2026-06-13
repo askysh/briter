@@ -3,9 +3,20 @@ import { join } from "node:path";
 
 export async function computeDirectorySize(root: string): Promise<number> {
   await mkdir(root, { recursive: true });
-  const entries = await readdir(root);
-  const stats = await Promise.all(entries.map((name) => stat(join(root, name))));
-  return stats.reduce((sum, item) => sum + item.size, 0);
+  const entries = await readdir(root, { withFileTypes: true });
+  const sizes = await Promise.all(
+    entries.map(async (entry) => {
+      const fullPath = join(root, entry.name);
+      if (entry.isDirectory()) {
+        return computeDirectorySize(fullPath);
+      }
+      if (entry.isFile()) {
+        return (await stat(fullPath)).size;
+      }
+      return 0;
+    }),
+  );
+  return sizes.reduce((sum, size) => sum + size, 0);
 }
 
 export function isNearCapacity(usedBytes: number, capBytes: number): boolean {
