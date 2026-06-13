@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import * as OTPAuth from "otpauth";
 
 import { SESSION_COOKIE } from "@/lib/auth/constants";
+import { enforceSameOrigin } from "@/lib/auth/csrf";
 import { isRateLimited } from "@/lib/auth/rate-limit";
 import { verifyPassword } from "@/lib/auth/password";
 import { createSessionToken } from "@/lib/auth/session";
@@ -13,6 +14,9 @@ type LoginPayload = {
 };
 
 export async function POST(request: Request) {
+  const forged = enforceSameOrigin(request);
+  if (forged) return forged;
+
   const ip = request.headers.get("x-forwarded-for") ?? "local";
   if (isRateLimited(ip)) {
     return NextResponse.json({ error: "Too many attempts." }, { status: 429 });
