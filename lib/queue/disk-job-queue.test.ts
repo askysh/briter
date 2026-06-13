@@ -93,6 +93,60 @@ describe("DiskJobQueue", () => {
     expect(updated.scheduledFor).toBe("2026-04-19T12:00:00.000Z");
   });
 
+  test("supersedes an existing pending job for the same slug", async () => {
+    tempRoot = await mkdtemp(join(tmpdir(), "briter-queue-"));
+    const queue = new DiskJobQueue(tempRoot);
+
+    const stale = await queue.enqueue({
+      kind: "git-sync",
+      postSlug: "scheduled-post",
+      paths: ["content/posts/scheduled-post.mdx"],
+      commitMessage: "first schedule",
+      scheduledFor: "2026-04-19T10:00:00.000Z",
+    });
+
+    const fresh = await queue.enqueue({
+      kind: "git-sync",
+      postSlug: "scheduled-post",
+      paths: ["content/posts/scheduled-post.mdx"],
+      commitMessage: "edited schedule",
+      scheduledFor: "2026-04-19T14:00:00.000Z",
+    });
+
+    const jobs = await queue.listAll();
+    const forSlug = jobs.filter((job) => job.postSlug === "scheduled-post");
+
+    expect(forSlug.map((job) => job.id)).toEqual([fresh.id]);
+    expect(forSlug).toHaveLength(1);
+    expect(fresh.id).not.toBe(stale.id);
+  });
+
+  test("does not supersede jobs for a different slug", async () => {
+    tempRoot = await mkdtemp(join(tmpdir(), "briter-queue-"));
+    const queue = new DiskJobQueue(tempRoot);
+
+    const other = await queue.enqueue({
+      kind: "git-sync",
+      postSlug: "other-post",
+      paths: ["content/posts/other-post.mdx"],
+      commitMessage: "other",
+    });
+
+    await queue.enqueue({
+      kind: "git-sync",
+      postSlug: "scheduled-post",
+      paths: ["content/posts/scheduled-post.mdx"],
+      commitMessage: "scheduled",
+    });
+
+    const jobs = await queue.listAll();
+    expect(jobs.map((job) => job.postSlug).sort()).toEqual([
+      "other-post",
+      "scheduled-post",
+    ]);
+    expect(jobs.some((job) => job.id === other.id)).toBe(true);
+  });
+
   test("lists only due jobs", async () => {
     tempRoot = await mkdtemp(join(tmpdir(), "briter-queue-"));
     const queue = new DiskJobQueue(tempRoot);

@@ -15,11 +15,30 @@ function scheduleKeyFor(job: GitSyncJob): string {
   return job.scheduledFor ?? job.createdAt ?? "1970-01-01T00:00:00.000Z";
 }
 
+/**
+ * A job is terminal once dead-lettered. Terminal jobs are not retried, are not
+ * due, and do not block a fresh pending job for the same slug.
+ */
+function isTerminal(job: GitSyncJob): boolean {
+  return job.status === "failed";
+}
+
 export class DiskJobQueue {
   constructor(private readonly root: string) {}
 
   async enqueue(input: EnqueueGitSyncJobInput) {
     const job = createGitSyncJob(input);
+
+    // Per-slug dedup: a post has at most one pending job. Editing a scheduled
+    // post must not leave a stale pending job behind that still fires.
+    const superseded = (await this.listAll()).filter(
+      (existing) =>
+        existing.postSlug === job.postSlug && !isTerminal(existing),
+    );
+    for (const stale of superseded) {
+      await this.remove(stale.id);
+    }
+
     await this.write(job);
     return job;
   }
@@ -53,7 +72,9 @@ export class DiskJobQueue {
     const jobs = await this.listAll();
 
     return jobs.filter(
-      (job) => new Date(scheduleKeyFor(job)).getTime() <= now.getTime(),
+      (job) =>
+        !isTerminal(job) &&
+        new Date(scheduleKeyFor(job)).getTime() <= now.getTime(),
     );
   }
 
