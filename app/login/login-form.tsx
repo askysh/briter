@@ -48,10 +48,11 @@ export function LoginForm({ totpEnabled }: { totpEnabled: boolean }) {
           <input
             id="totp"
             value={totpCode}
-            onChange={(e) => setTotpCode(e.target.value)}
+            onChange={(e) => setTotpCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
             placeholder="123456"
             inputMode="numeric"
             autoComplete="one-time-code"
+            maxLength={6}
             required
           />
         </div>

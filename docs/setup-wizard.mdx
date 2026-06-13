@@ -7,61 +7,71 @@ category: "basics"
 
 # Setup Wizard
 
-The setup wizard runs once on first boot. It collects everything Briter needs to operate and writes two files: `storage/config.json` (safe to read) and `storage/secrets.json` (chmod 600, never logged).
+The setup wizard runs once on first boot. It walks you through five short steps and, on completion, writes two files: `storage/config.json` (safe to read) and `storage/secrets.json` (chmod 600, never logged). The wizard endpoint (`/api/setup`) is a no-op once `configured: true` is set.
+
+A progress indicator across the top shows where you are. Each step validates before you can continue, errors are shown inline, and the final step submits with a busy state and hands off to the login screen on success.
 
 ## Steps
 
-### 1. Site identity
+### 1. Your blog
 
-- **Site name** — shown in the public reader header and RSS feed title
-- **Description** — used in `<meta name="description">` and the RSS feed description
-- **Author name** — rendered on post pages and in RSS `<author>`
-- **Base URL** — full URL including protocol (e.g. `https://myblog.com`). Used for canonical links, OpenGraph, and the RSS `<link>`.
+- **Site name** — shown in the public reader header and RSS feed title (required)
+- **Description** — used in `<meta name="description">` and the RSS feed description (optional)
+- **Author name** — rendered on post pages and in RSS `<author>` (optional)
 
-### 2. Admin password
-
-Enter a password. Briter hashes it with bcrypt and stores the hash in `storage/secrets.json`. The plain-text password is never written anywhere.
-
-Password requirements: 12 characters minimum.
-
-### 3. TOTP (optional)
-
-Enable two-factor authentication via TOTP (Google Authenticator, 1Password, Authy, etc.).
-
-- Briter generates a TOTP secret and displays a QR code.
-- Scan the QR code with your authenticator app.
-- Enter the 6-digit code to confirm the secret was saved correctly.
-
-TOTP is off by default. You can skip this step and enable it later via Settings.
-
-### 4. Adapter
+### 2. Publishing
 
 Choose how Briter publishes content:
 
-- **Built-in reader** — Briter serves its own public blog at `/posts`. Your readers come to your Briter instance.
-- **External site (git-target)** — Briter writes posts into a separate git repository (a sibling Next.js, Astro, or Hugo site). `/posts` redirects to your external site's URL.
+- **Briter is my blog** (`local-mdx`) — Briter hosts and serves your posts on its built-in reader at `/posts`. The simplest option, recommended for most installs.
+- **Push to my existing site** (`git-target`) — Briter writes posts into an external git repository (a sibling Next.js, Astro, or Hugo site) and your own frontend renders them.
 
-For most first installs, pick **Built-in reader**.
+This choice is persisted as `siteAdapterKey` in `storage/config.json`. You can change it later under **Settings → Publishing**.
 
-### 5. Git settings (external site only)
+This step also sets the **upload storage cap** (in MB). The wizard senses the data volume and shows free/total space so you can pick a sensible limit.
 
-If you chose the git-target adapter:
+#### External-target details
 
-- **Worktree path** — absolute path to the external site repo on the same filesystem
-- **Content subpath** — relative path for post files (e.g. `content/notes`)
-- **Upload subpath** — relative path for uploaded images (e.g. `public/uploads/notes`)
-- **Frontmatter preset** — `next-mdx`, `astro`, or `hugo` (controls field names and extension)
-- **Published URL template** — e.g. `https://mysite.com/notes/{slug}`
-- **Revalidate webhook** (optional) — URL Briter POSTs to after each successful push
+When you choose **Push to my existing site**, the wizard records the mode but does **not** ask for the target repository, branch, or any credentials. That wiring is intentionally kept out of the browser-facing wizard:
+
+- The target repo, branch, remote, and worktree are configured on the server via the `BRITER_GIT_*` environment variables (read by the publish worker).
+- Briter pushes to a **local git worktree over SSH** — the deploy key lives in the server's SSH configuration, never in Briter's config or in the wizard. No secret is ever entered or stored through the setup form.
+- Per-instance publishing options live under **Settings → Publishing** after setup.
+
+This keeps the single deploy-key/secret out of `storage/config.json` and out of logs, consistent with Briter's secrets-isolation rule.
+
+### 3. Password
+
+Set the admin password used to sign into Briter. There is no email-based reset, so choose something you keep in a password manager.
+
+- **Confirm password** — a second field guards against typos; a mismatch is flagged inline and blocks continuing.
+- **Show/hide** — toggle visibility on both fields.
+- **Requirement feedback** — a live strength meter plus a checklist. The only hard rule is a minimum of **10 characters** (enforced again server-side); a mix of case, a number, and a symbol are recommended but not required, so a long passphrase is accepted.
+
+Briter hashes the password with bcrypt and stores only the hash in `storage/secrets.json`. The plain-text password is never written anywhere.
+
+### 4. Two-factor (optional)
+
+TOTP (Google Authenticator, 1Password, Authy, etc.) is **off by default**.
+
+If you enable it:
+
+1. Briter generates a secret and shows a QR code plus the secret in text (for manual entry).
+2. Scan the QR code, or type the secret into your authenticator.
+3. Enter the current 6-digit code. Briter **verifies the code before finishing**, so a mis-scanned secret can't lock you out — nothing is saved until a live code validates.
+
+The secret is provisioned for display only and is committed to `storage/secrets.json` solely once verification passes.
+
+### 5. Finish
+
+A summary lists your choices (site name, author, publishing mode, upload cap, and whether two-factor is on). Confirm to complete setup; on success the wizard shows a confirmation and a button to continue to the login screen.
 
 ## What gets written
 
 After completing the wizard:
 
-- `storage/config.json` — site identity, adapter settings, public configuration
-- `storage/secrets.json` — bcrypt hash, TOTP secret (if set), session secret
-
-The wizard endpoint (`/api/setup`) is a no-op after `configured: true` is set.
+- `storage/config.json` — site identity, `siteAdapterKey`, upload cap, and other public configuration
+- `storage/secrets.json` — bcrypt password hash and TOTP secret (if enabled), chmod 600, never logged
 
 ## Recovery
 
