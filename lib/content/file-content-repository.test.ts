@@ -44,6 +44,47 @@ describe("FileContentRepository", () => {
     expect(posts).toHaveLength(1);
   });
 
+  test("preserves a full datetime publishedAt to the minute (IST offset)", async () => {
+    tempRoot = await mkdtemp(join(tmpdir(), "briter-content-"));
+    // Unquoted full datetime with a +05:30 offset: YAML parses it to a Date.
+    // 14:30 IST is 09:00 UTC — it must not collapse to a bare date / midnight.
+    await writeFile(
+      join(tempRoot, "scheduled-note.mdx"),
+      `---\ntitle: Scheduled\npublishedAt: 2026-07-01T14:30:00+05:30\nsummary: S\n---\n\nBody.\n`,
+      "utf8",
+    );
+    const repository = new FileContentRepository(tempRoot);
+
+    const post = await repository.getPost("scheduled-note");
+
+    expect(post?.frontmatter.publishedAt).toBe("2026-07-01T09:00:00.000Z");
+    // Same UTC instant as 14:30 IST, proving the time-of-day survived.
+    expect(new Date(post!.frontmatter.publishedAt!).getTime()).toBe(
+      new Date("2026-07-01T14:30:00+05:30").getTime(),
+    );
+  });
+
+  test("round-trips a datetime: save -> file -> reload yields the identical value", async () => {
+    tempRoot = await mkdtemp(join(tmpdir(), "briter-content-"));
+    const repository = new FileContentRepository(tempRoot);
+    // The editor writes a full UTC ISO instant (datetime-local -> toISOString).
+    const value = "2026-07-01T09:00:00.000Z";
+
+    const { post: saved } = await repository.savePost({
+      slug: "round-trip",
+      title: "Round Trip",
+      summary: "S",
+      body: "Body.",
+      tags: [],
+      draft: false,
+      publishedAt: value,
+    });
+    expect(saved.frontmatter.publishedAt).toBe(value);
+
+    const reloaded = await repository.getPost("round-trip");
+    expect(reloaded?.frontmatter.publishedAt).toBe(value);
+  });
+
   test("preserves frontmatter keys it does not manage when saving", async () => {
     tempRoot = await mkdtemp(join(tmpdir(), "briter-content-"));
     await writeFile(join(tempRoot, "existing-note.mdx"), SITE_NOTE, "utf8");

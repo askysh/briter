@@ -15,9 +15,23 @@ import type { PostDocument, PostFrontmatter, PostInput } from "@/lib/content/typ
 const SUPPORTED_EXTENSIONS = new Set([".md", ".mdx"]);
 
 function normalizeDateValue(value: unknown): string | undefined {
+  // A quoted frontmatter value (`publishedAt: "2026-07-01T14:30:00+05:30"`)
+  // arrives as a string and is round-tripped verbatim.
   if (typeof value === "string") return value;
+  // YAML parses unquoted timestamps into Date objects. A bare calendar date
+  // (`2026-04-18`) lands on exact UTC midnight and keeps its date-only form so
+  // existing notes are untouched. A full datetime (`2026-07-01T14:30:00+05:30`)
+  // carries a real time-of-day, so preserve the whole ISO instant to the minute
+  // instead of truncating it back to a bare date.
   if (value instanceof Date && !Number.isNaN(value.getTime())) {
-    return value.toISOString().slice(0, 10);
+    const isUtcMidnight =
+      value.getUTCHours() === 0 &&
+      value.getUTCMinutes() === 0 &&
+      value.getUTCSeconds() === 0 &&
+      value.getUTCMilliseconds() === 0;
+    return isUtcMidnight
+      ? value.toISOString().slice(0, 10)
+      : value.toISOString();
   }
   return undefined;
 }
