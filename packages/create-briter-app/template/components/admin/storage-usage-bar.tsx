@@ -9,13 +9,19 @@ function formatBytes(value: number): string {
 export function StorageUsageBar({
   usedBytes,
   capBytes,
+  diskFreeBytes = null,
+  diskTotalBytes = null,
 }: {
   usedBytes: number;
   capBytes: number;
+  diskFreeBytes?: number | null;
+  diskTotalBytes?: number | null;
 }) {
   const hasCap = Number.isFinite(capBytes) && capBytes > 0;
   const ratio = hasCap ? Math.max(0, Math.min(1, usedBytes / capBytes)) : 0;
   const percentage = Math.round(ratio * 100);
+  const hasDisk =
+    typeof diskFreeBytes === "number" && Number.isFinite(diskFreeBytes);
 
   return (
     <div className="storage-usage">
@@ -31,6 +37,18 @@ export function StorageUsageBar({
           style={{ width: `${Math.max(percentage, usedBytes > 0 ? 2 : 0)}%` }}
         />
       </div>
+      {hasDisk ? (
+        <div className="storage-usage-head">
+          <span className="tiny">Disk free</span>
+          <span className="tiny">
+            {formatBytes(diskFreeBytes as number)}
+            {typeof diskTotalBytes === "number" &&
+            Number.isFinite(diskTotalBytes)
+              ? ` of ${formatBytes(diskTotalBytes)}`
+              : ""}
+          </span>
+        </div>
+      ) : null}
     </div>
   );
 }

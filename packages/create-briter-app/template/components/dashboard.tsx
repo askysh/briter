@@ -3,6 +3,13 @@ import Link from "next/link";
 import type { PostDocument } from "@/lib/content/types";
 import { StorageUsageBar } from "@/components/admin/storage-usage-bar";
 import { StatusPill } from "@/components/status-pill";
+import { ArchiveButton } from "@/components/archive-button";
+
+type ScheduledEntry = {
+  slug: string;
+  scheduledFor: string;
+  commitMessage: string;
+};
 
 function formatDate(value?: string): string {
   if (!value) return "Unscheduled";
@@ -15,17 +22,40 @@ function formatDate(value?: string): string {
   });
 }
 
+function formatDateTime(value: string): string {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return date.toLocaleString(undefined, {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
 export function Dashboard({
   posts,
   queueSummary,
+  scheduled = [],
   storageUsage,
 }: {
   posts: PostDocument[];
   queueSummary: { pending: number; failed: number };
-  storageUsage: { usedBytes: number; capBytes: number };
+  scheduled?: ScheduledEntry[];
+  storageUsage: {
+    usedBytes: number;
+    capBytes: number;
+    diskFreeBytes: number | null;
+    diskTotalBytes: number | null;
+  };
 }) {
   const drafts = posts.filter((post) => post.status === "draft").length;
   const published = posts.filter((post) => post.status === "published").length;
+  // Resolve each scheduled queue job back to its post for a friendly title.
+  const titleBySlug = new Map(
+    posts.map((post) => [post.slug, post.frontmatter.title]),
+  );
 
   return (
     <div className="section-stack dashboard">
@@ -61,9 +91,32 @@ export function Dashboard({
           <StorageUsageBar
             usedBytes={storageUsage.usedBytes}
             capBytes={storageUsage.capBytes}
+            diskFreeBytes={storageUsage.diskFreeBytes}
+            diskTotalBytes={storageUsage.diskTotalBytes}
           />
         </div>
       </div>
+
+      {scheduled.length > 0 ? (
+        <section className="panel dashboard-list">
+          <div className="dashboard-list-head">
+            <h2 className="dashboard-list-title">Scheduled</h2>
+          </div>
+          {scheduled.map((entry) => (
+            <article key={entry.slug} className="post-row">
+              <div className="post-row-main">
+                <Link className="post-title" href={`/write/${entry.slug}`}>
+                  {titleBySlug.get(entry.slug) ?? entry.slug}
+                </Link>
+                <span className="tiny">
+                  Goes live {formatDateTime(entry.scheduledFor)}
+                </span>
+              </div>
+              <StatusPill status="scheduled" />
+            </article>
+          ))}
+        </section>
+      ) : null}
 
       <section className="panel dashboard-list">
         <div className="dashboard-list-head">
@@ -105,6 +158,10 @@ export function Dashboard({
                 >
                   Edit
                 </Link>
+                <ArchiveButton
+                  slug={post.slug}
+                  archived={post.status === "archived"}
+                />
               </div>
             </article>
           ))

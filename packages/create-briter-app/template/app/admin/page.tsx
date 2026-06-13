@@ -3,6 +3,7 @@ export const dynamic = "force-dynamic";
 import { Dashboard } from "@/components/dashboard";
 import { createAppServices } from "@/lib/app/services";
 import { isFirstBoot } from "@/lib/config/runtime-config";
+import { senseDiskUsage } from "@/lib/uploads/disk-usage";
 import { redirect } from "next/navigation";
 
 export default async function AdminPage() {
@@ -11,17 +12,25 @@ export default async function AdminPage() {
   }
 
   const { repository, queue, uploads, env } = await createAppServices();
-  const [posts, queueSummary, usedBytes] = await Promise.all([
+  const [posts, queueSummary, scheduled, usedBytes, disk] = await Promise.all([
     repository.listPosts(),
     queue.getSummary(),
+    queue.listScheduled(),
     uploads.getUsageBytes(),
+    senseDiskUsage(env.uploadRoot),
   ]);
 
   return (
     <Dashboard
       posts={posts}
       queueSummary={queueSummary}
-      storageUsage={{ usedBytes, capBytes: env.uploadStorageLimitBytes }}
+      scheduled={scheduled}
+      storageUsage={{
+        usedBytes,
+        capBytes: env.uploadStorageLimitBytes,
+        diskFreeBytes: disk?.freeBytes ?? null,
+        diskTotalBytes: disk?.totalBytes ?? null,
+      }}
     />
   );
 }
