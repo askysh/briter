@@ -38,6 +38,8 @@ Deploy to Railway · Deploy to Render · Deploy to Fly.io
 - **Setup wizard** — site name, password, done. No config files to edit.
 - **Two-pane editor** — Markdown on the left, live preview on the right. Autosave, scroll-sync, paste-to-upload images.
 - **Built-in public reader** — your blog renders out of the box with RSS, sitemap, and SEO metadata. Or use an adapter to push content to your existing site.
+- **Sections** — JSON-defined `highlight`/`list` content config bound to site routes. Decide what appears where, and in what order, without touching code.
+- **Editorial workflow** — draft → scheduled → published → archived. Future-dated posts stay out of git until their publish instant; archiving is a reversible hide, never a delete.
 - **Image pipeline** — drag-and-drop upload with automatic AVIF/WebP variants, EXIF stripping, and storage budget.
 - **Git-backed** — every publish is a git commit. Full history, full portability.
 - **Docker or bare metal** — `docker compose up` or `bun run dev`. Your choice.

@@ -9,7 +9,7 @@ export async function GET() {
 
   return NextResponse.json({
     ok: true,
-    version: "0.1.0",
+    version: "2.0.0",
     configured: config.configured,
     hasAuth: Boolean(secrets.adminPasswordHash),
   });
