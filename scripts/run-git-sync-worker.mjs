@@ -1,30 +1,27 @@
 #!/usr/bin/env node
-import { open, rm } from "node:fs/promises";
+import { rm } from "node:fs/promises";
 import { join } from "node:path";
 import { spawn } from "node:child_process";
 
+import {
+  DEFAULT_LOCK_STALE_MS,
+  acquireLock as acquireWorkerLock,
+} from "../lib/worker/lock-file.ts";
+
 const appRoot = process.cwd();
 const lockPath = join(appRoot, "storage", "worker.lock");
-let lockHandle;
-
-async function acquireLock() {
-  try {
-    lockHandle = await open(lockPath, "wx");
-    await lockHandle.writeFile(String(process.pid));
-    return true;
-  } catch {
-    return false;
-  }
-}
+// A lock older than this is treated as abandoned even if its PID still appears
+// alive (e.g. PID reuse). A crash must never permanently wedge future syncs.
+const staleMs = Number.parseInt(
+  process.env.BRITER_WORKER_LOCK_STALE_MS ?? String(DEFAULT_LOCK_STALE_MS),
+  10,
+);
 
 async function releaseLock() {
-  try {
-    await lockHandle?.close();
-  } catch {}
   await rm(lockPath, { force: true });
 }
 
-const locked = await acquireLock();
+const locked = await acquireWorkerLock(lockPath, { staleMs });
 if (!locked) {
   console.log("[briter-worker] another worker instance is active, skipping");
   process.exit(0);

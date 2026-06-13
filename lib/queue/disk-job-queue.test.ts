@@ -93,6 +93,121 @@ describe("DiskJobQueue", () => {
     expect(updated.scheduledFor).toBe("2026-04-19T12:00:00.000Z");
   });
 
+  test("supersedes an existing pending job for the same slug", async () => {
+    tempRoot = await mkdtemp(join(tmpdir(), "briter-queue-"));
+    const queue = new DiskJobQueue(tempRoot);
+
+    const stale = await queue.enqueue({
+      kind: "git-sync",
+      postSlug: "scheduled-post",
+      paths: ["content/posts/scheduled-post.mdx"],
+      commitMessage: "first schedule",
+      scheduledFor: "2026-04-19T10:00:00.000Z",
+    });
+
+    const fresh = await queue.enqueue({
+      kind: "git-sync",
+      postSlug: "scheduled-post",
+      paths: ["content/posts/scheduled-post.mdx"],
+      commitMessage: "edited schedule",
+      scheduledFor: "2026-04-19T14:00:00.000Z",
+    });
+
+    const jobs = await queue.listAll();
+    const forSlug = jobs.filter((job) => job.postSlug === "scheduled-post");
+
+    expect(forSlug.map((job) => job.id)).toEqual([fresh.id]);
+    expect(forSlug).toHaveLength(1);
+    expect(fresh.id).not.toBe(stale.id);
+  });
+
+  test("does not supersede jobs for a different slug", async () => {
+    tempRoot = await mkdtemp(join(tmpdir(), "briter-queue-"));
+    const queue = new DiskJobQueue(tempRoot);
+
+    const other = await queue.enqueue({
+      kind: "git-sync",
+      postSlug: "other-post",
+      paths: ["content/posts/other-post.mdx"],
+      commitMessage: "other",
+    });
+
+    await queue.enqueue({
+      kind: "git-sync",
+      postSlug: "scheduled-post",
+      paths: ["content/posts/scheduled-post.mdx"],
+      commitMessage: "scheduled",
+    });
+
+    const jobs = await queue.listAll();
+    expect(jobs.map((job) => job.postSlug).sort()).toEqual([
+      "other-post",
+      "scheduled-post",
+    ]);
+    expect(jobs.some((job) => job.id === other.id)).toBe(true);
+  });
+
+  test("dead-letters a job after it reaches max attempts", async () => {
+    tempRoot = await mkdtemp(join(tmpdir(), "briter-queue-"));
+    const queue = new DiskJobQueue(tempRoot);
+
+    const job = await queue.enqueue({
+      kind: "git-sync",
+      postSlug: "doomed-post",
+      paths: ["content/posts/doomed-post.mdx"],
+      commitMessage: "save",
+    });
+
+    const maxAttempts = 3;
+    let last;
+    for (let i = 0; i < maxAttempts; i += 1) {
+      last = await queue.markFailed(
+        job.id,
+        `attempt ${i + 1} failed`,
+        new Date("2026-04-19T12:00:00.000Z"),
+        maxAttempts,
+      );
+    }
+
+    expect(last?.attempts).toBe(maxAttempts);
+    expect(last?.status).toBe("failed");
+
+    // Terminal job is no longer due and so stops retrying.
+    const due = await queue.listDue(new Date("2026-04-20T00:00:00.000Z"));
+    expect(due.some((j) => j.id === job.id)).toBe(false);
+
+    // GET /api/queue surfaces it via the failed count.
+    const summary = await queue.getSummary();
+    expect(summary.failed).toBe(1);
+    expect(summary.pending).toBe(0);
+  });
+
+  test("keeps a job pending and due while under the attempt cap", async () => {
+    tempRoot = await mkdtemp(join(tmpdir(), "briter-queue-"));
+    const queue = new DiskJobQueue(tempRoot);
+
+    const job = await queue.enqueue({
+      kind: "git-sync",
+      postSlug: "retrying-post",
+      paths: ["content/posts/retrying-post.mdx"],
+      commitMessage: "save",
+    });
+
+    const updated = await queue.markFailed(
+      job.id,
+      "transient failure",
+      new Date("2026-04-19T11:00:00.000Z"),
+      8,
+    );
+
+    expect(updated.attempts).toBe(1);
+    expect(updated.status).toBeUndefined();
+
+    const summary = await queue.getSummary();
+    expect(summary.pending).toBe(1);
+    expect(summary.failed).toBe(0);
+  });
+
   test("lists only due jobs", async () => {
     tempRoot = await mkdtemp(join(tmpdir(), "briter-queue-"));
     const queue = new DiskJobQueue(tempRoot);
