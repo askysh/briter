@@ -21,7 +21,7 @@
   "dependencies": {
     "bcryptjs": "^3.0.3",
     "gray-matter": "^4.0.3",
-    "next": "16.2.9",
+    "next": "16.3.3",
     "otpauth": "^9.5.1",
     "qrcode": "^1.5.4",
     "react": "19.2.7",
