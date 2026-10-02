@@ -21,7 +21,7 @@ export async function POST(
   const { slug } = await params;
   const payload = (await request.json()) as ArchivePayload;
 
-  const { repository, queue, siteAdapter, env } = await createAppServices();
+  const { repository, queue, siteAdapter, uploads, env } = await createAppServices();
   const existing = await repository.getPost(slug);
 
   if (!existing) {
@@ -33,6 +33,7 @@ export async function POST(
     queue,
     siteAdapter,
     env.gitWorktreeRoot,
+    uploads,
   );
 
   // Re-save the post verbatim with only the archived flag flipped. The file

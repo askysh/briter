@@ -151,35 +151,45 @@ export function PostEditor({ initialPost }: { initialPost: EditablePost }) {
       }
       setIsSaving(true);
 
-      const response = await fetch("/api/publish", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          action,
-          slug: resolvedSlug,
-          title,
-          summary,
-          body,
-          tags: tags
-            .split(",")
-            .map((tag) => tag.trim())
-            .filter(Boolean),
-          publishedAt: publishedAt || undefined,
-        }),
-      });
-
-      const payload = (await response.json()) as {
+      let response: Response;
+      let payload: {
         error?: string;
         editorHref?: string;
         previewHref?: string;
         publishedHref?: string;
         previewShareUrl?: string;
       };
-
-      if (!options?.silent) {
-        setBusyAction(null);
+      try {
+        response = await fetch("/api/publish", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            action,
+            slug: resolvedSlug,
+            title,
+            summary,
+            body,
+            tags: tags
+              .split(",")
+              .map((tag) => tag.trim())
+              .filter(Boolean),
+            publishedAt: publishedAt || undefined,
+          }),
+        });
+        // A proxy error page or crashed handler returns non-JSON; surface it
+        // as a failed save instead of leaving the editor stuck on "Saving".
+        payload = await response.json().catch(() => ({
+          error: `Save failed (HTTP ${response.status}).`,
+        }));
+      } catch {
+        response = new Response(null, { status: 599 });
+        payload = { error: "Save failed: the server could not be reached." };
+      } finally {
+        if (!options?.silent) {
+          setBusyAction(null);
+        }
+        setIsSaving(false);
       }
-      setIsSaving(false);
 
       if (!response.ok) {
         setMessage(payload.error ?? "Save failed.");

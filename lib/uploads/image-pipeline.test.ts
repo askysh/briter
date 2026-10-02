@@ -107,3 +107,35 @@ describe("ImageUploadService.getUsageBytes", () => {
     expect(usage).toBeGreaterThan(0);
   });
 });
+
+describe("ImageUploadService variant widths", () => {
+  test("keeps a full-width variant for an image between default widths", async () => {
+    const result = await service.store(await makeJpegFile(768, 1024));
+    const widths = [...new Set(result.manifest.variants.map((v) => v.width))];
+    expect(widths).toEqual([400, 768]);
+    expect(result.publicPath).toEndWith("-768.webp");
+  });
+
+  test("caps wide images at the largest default width", async () => {
+    const result = await service.store(await makeJpegFile(2000, 100));
+    const widths = [...new Set(result.manifest.variants.map((v) => v.width))];
+    expect(widths).toEqual([400, 800, 1200, 1600]);
+    expect(result.publicPath).toEndWith("-800.webp");
+  });
+});
+
+describe("ImageUploadService.referencedAssetPaths", () => {
+  test("returns every stored file for uploads the body references", async () => {
+    const nested = new ImageUploadService(uploadRoot, "/uploads/notes", LIMIT);
+    const result = await nested.store(await makeJpegFile(500, 500));
+    const body = `Intro\n\n${result.markdown}\n\n![x](/uploads/notes/${"f".repeat(64)}-400.webp)`;
+
+    const paths = await nested.referencedAssetPaths(body, join(uploadRoot, ".."));
+
+    const expected = [
+      ...result.manifest.variants.map((v) => v.fileName),
+      `${result.manifest.id}.json`,
+    ].map((name) => join(uploadRoot.split("/").pop()!, name));
+    expect(paths.sort()).toEqual(expected.sort());
+  });
+});

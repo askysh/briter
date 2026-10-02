@@ -14,13 +14,14 @@ Briter processes every uploaded image through a pipeline before storing it. The 
 1. Paste or drag an image onto the editor.
 2. Briter validates the file using magic-byte inspection (not just MIME type).
 3. The image is processed: EXIF stripped, resized into variants, encoded as AVIF and WebP.
-4. All variants are stored under `storage/uploads/posts/<slug>/`.
+4. All variants are stored flat in the upload root (`BRITER_UPLOAD_ROOT`, default `storage/uploads/posts/`), named `<sha256>-<width>.<avif|webp>`.
 5. A manifest JSON records variant paths and dimensions.
-6. The editor inserts a Markdown image tag pointing to the 800px WebP variant.
+6. The editor inserts a Markdown image tag pointing to the 800px WebP variant (or the largest WebP variant when the image is narrower than 800px), under `BRITER_UPLOAD_ROUTE_BASE`.
+7. When you save or publish the post, the git-sync job stages every variant and the manifest of each upload the post references, so the images are committed with the post.
 
 ## Variants
 
-Each upload produces variants at 400, 800, 1200, and 1600 pixels wide, in both AVIF and WebP format. The original is not stored. Use `<picture>` or a Next.js `<Image>` component in your theme to serve the right variant.
+Each upload produces variants at 400, 800, 1200, and 1600 pixels wide, in both AVIF and WebP format. Briter never upscales: an image narrower than 1600px gets the default widths below its own width plus one variant at its full width (a 768px image gets 400 and 768). The original is not stored. Use `<picture>` or a Next.js `<Image>` component in your theme to serve the right variant.
 
 Dimension limits: 8000px on either axis, 24 megapixels total. Images exceeding these are rejected.
 
