@@ -11,7 +11,7 @@ Briter never pushes to git from a web request. The web app writes a **job file**
 
 ## The queue
 
-The queue is `DiskJobQueue` (`lib/queue/disk-job-queue.ts`): one JSON file per job under `storage/queue/` (`BRITER_QUEUE_ROOT`). Each `git-sync` job records the post slug, the paths to stage, the commit message, a `scheduledFor` instant, the attempt count, and a status.
+The queue is `DiskJobQueue` (`lib/queue/disk-job-queue.ts`): one JSON file per job under `storage/queue/` (`BRITER_QUEUE_ROOT`). Each `git-sync` job records the post slug, the paths to stage (the post file plus every variant and manifest of the uploads the post body references), the commit message, a `scheduledFor` instant, the attempt count, and a status.
 
 ### Per-slug dedup
 

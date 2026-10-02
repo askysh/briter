@@ -119,3 +119,28 @@ describe("PublishService", () => {
     expect(scheduledMs).toBeLessThanOrEqual(Date.now() + 1000);
   });
 });
+
+describe("PublishService upload assets", () => {
+  test("stages the uploads a post references alongside the post", async () => {
+    const queue = await makeQueue();
+    const assets = [
+      "public/uploads/notes/abc-400.webp",
+      "public/uploads/notes/abc.json",
+    ];
+    const service = new PublishService(
+      fakeRepository(buildPost()),
+      queue,
+      gitTargetSiteAdapter,
+      WORKTREE,
+      { referencedAssetPaths: async () => assets },
+    );
+
+    const { job } = await service.save(INPUT, "publish");
+
+    expect(job.paths).toEqual([
+      "content/notes/the-spark-plug-burns-almost-nothing.mdx",
+      ...assets,
+    ]);
+    expect(validatePaths(job.paths, gitTargetSiteAdapter)).toEqual(job.paths);
+  });
+});

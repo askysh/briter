@@ -1,5 +1,5 @@
 import { readFile } from "node:fs/promises";
-import { basename, extname, join } from "node:path";
+import { extname, join } from "node:path";
 
 import { NextResponse } from "next/server";
 
@@ -14,19 +14,27 @@ const CONTENT_TYPES: Record<string, string> = {
   ".webp": "image/webp",
 };
 
+// Upload markdown points at `${uploadRouteBase}/<file>`. The route base can be
+// nested (e.g. `/uploads/notes` to match a site's public path), so this route
+// catches every depth and serves the file only at the configured base or at
+// the legacy `/uploads/<file>` path.
 export async function GET(
   _request: Request,
-  { params }: { params: Promise<{ file: string }> },
+  { params }: { params: Promise<{ path: string[] }> },
 ) {
-  const { file } = await params;
+  const { path } = await params;
+  const file = path.at(-1) ?? "";
+  const { env } = await createAppServices();
+  const requested = `/uploads/${path.join("/")}`;
+  const isServedPath =
+    requested === `/uploads/${file}` ||
+    requested === `${env.uploadRouteBase.replace(/\/+$/, "")}/${file}`;
 
-  if (!isSafeUploadPath(file)) {
+  if (!isServedPath || !isSafeUploadPath(file)) {
     return new NextResponse("Not found", { status: 404 });
   }
 
-  const { env } = await createAppServices();
-  const safeFileName = basename(file);
-  const filePath = join(env.uploadRoot, safeFileName);
+  const filePath = join(env.uploadRoot, file);
 
   try {
     const buffer = await readFile(filePath);

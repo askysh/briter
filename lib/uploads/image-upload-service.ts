@@ -1,11 +1,12 @@
 import { createHash } from "node:crypto";
 import { mkdir, readFile, stat, writeFile } from "node:fs/promises";
-import { join } from "node:path";
+import { join, relative } from "node:path";
 
 import sharp from "sharp";
 
 import type { UploadManifest, UploadVariant } from "@/lib/uploads/upload-manifest";
 import { computeDirectorySize, isNearCapacity } from "@/lib/uploads/budget";
+import { isSafeUploadPath } from "@/lib/uploads/path-guard";
 
 const DEFAULT_WIDTHS = [400, 800, 1200, 1600];
 const SUPPORTED_INPUT_FORMATS = new Set(["jpeg", "png", "webp", "avif", "gif"]);
@@ -52,8 +53,13 @@ export class ImageUploadService {
     ) {
       throw new Error("Image dimensions exceed allowed limits.");
     }
-    const widths = DEFAULT_WIDTHS.filter((width) => width <= originalWidth);
-    const variantWidths = widths.length > 0 ? widths : [originalWidth || 800];
+    // Keep a full-resolution variant: a 768px image gets 400 + 768, not just
+    // a 400px downscale. Images wider than the largest default cap at it.
+    const largestWidth = Math.min(originalWidth, DEFAULT_WIDTHS[DEFAULT_WIDTHS.length - 1]);
+    const variantWidths = [
+      ...DEFAULT_WIDTHS.filter((width) => width < largestWidth),
+      largestWidth,
+    ];
     const variants: UploadVariant[] = [];
 
     for (const width of variantWidths) {
@@ -93,9 +99,10 @@ export class ImageUploadService {
       "utf8",
     );
 
+    const webpVariants = variants.filter((variant) => variant.format === "webp");
     const preferredVariant =
-      variants.find((variant) => variant.width === 800 && variant.format === "webp") ??
-      variants.find((variant) => variant.format === "webp") ??
+      webpVariants.find((variant) => variant.width === 800) ??
+      webpVariants[webpVariants.length - 1] ??
       variants[0];
 
     if (!preferredVariant) {
@@ -115,6 +122,35 @@ export class ImageUploadService {
 
   async readAsset(fileName: string) {
     return readFile(join(this.root, fileName));
+  }
+
+  /**
+   * Worktree-relative paths of every stored file (all variants plus the
+   * manifest) for uploads the post body references, so a git sync commits a
+   * post's images together with the post.
+   */
+  async referencedAssetPaths(body: string, worktreeRoot: string) {
+    const base = this.publicRouteBase.replace(/\/+$/, "").replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const references = body.matchAll(new RegExp(`${base}/([^\\s)"'<>]+)`, "g"));
+    const hashes = new Set<string>();
+    for (const [, fileName] of references) {
+      if (isSafeUploadPath(fileName)) hashes.add(fileName.split(/[-.]/)[0]);
+    }
+
+    const paths: string[] = [];
+    for (const hash of hashes) {
+      const manifestPath = join(this.root, `${hash}.json`);
+      try {
+        const manifest = JSON.parse(await readFile(manifestPath, "utf8")) as UploadManifest;
+        paths.push(
+          ...manifest.variants.map((variant) => join(this.root, variant.fileName)),
+          manifestPath,
+        );
+      } catch {
+        // Unknown or foreign upload: nothing of ours to commit.
+      }
+    }
+    return paths.map((path) => relative(worktreeRoot, path));
   }
 
   async getUsageBytes() {

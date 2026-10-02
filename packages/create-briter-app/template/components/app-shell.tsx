@@ -26,6 +26,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   async function signOut() {
     await fetch("/api/logout", { method: "POST" });
+    // Full reload drops all client state from the signed-out session.
+    // eslint-disable-next-line @next/next/no-location-assign-relative-destination
     window.location.href = "/login";
   }
 

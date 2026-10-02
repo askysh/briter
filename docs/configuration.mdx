@@ -59,7 +59,7 @@ See [Adapters](adapters) for how these are used.
 | `BRITER_GIT_REMOTE` | `origin` | Git remote the worker pushes to. |
 | `BRITER_GIT_AUTHOR_NAME` | `Briter` | `git` author name on sync commits. |
 | `BRITER_GIT_AUTHOR_EMAIL` | `briter@example.invalid` | `git` author email on sync commits. |
-| `BRITER_UPLOAD_ROUTE_BASE` | `/uploads` | URL path prefix the built-in reader serves uploaded assets under. |
+| `BRITER_UPLOAD_ROUTE_BASE` | `/uploads` | URL path prefix for uploaded assets. The editor writes image links under it, and Briter serves the files there (and at the legacy `/uploads/<file>`). It must start with `/uploads`; a nested base such as `/uploads/notes` lets the links match the path where your site serves the same files. |
 
 ### Worker tuning
 

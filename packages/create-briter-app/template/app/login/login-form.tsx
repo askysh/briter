@@ -23,6 +23,8 @@ export function LoginForm({ totpEnabled }: { totpEnabled: boolean }) {
       setError(data.error ?? "Login failed.");
       return;
     }
+    // Full reload so every server component renders with the new session cookie.
+    // eslint-disable-next-line @next/next/no-location-assign-relative-destination
     window.location.href = "/admin";
   }
 

@@ -20,12 +20,13 @@ export async function POST(request: Request) {
   if (unauthorized) return unauthorized;
 
   const payload = (await request.json()) as PublishPayload;
-  const { repository, queue, siteAdapter, env } = await createAppServices();
+  const { repository, queue, siteAdapter, uploads, env } = await createAppServices();
   const service = new PublishService(
     repository,
     queue,
     siteAdapter,
     env.gitWorktreeRoot,
+    uploads,
   );
   const now = new Date().toISOString();
 
