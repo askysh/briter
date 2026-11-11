@@ -36,7 +36,11 @@ services:
     volumes:
       - ./storage:/app/storage
       - ./content:/app/content
-      - /opt/personal-site:/opt/site-repo
+      # The web process only reads and writes notes and their uploads. It never
+      # runs git (the worker does), so it gets these two folders and not the
+      # whole site repo, which also holds .git and the deploy key.
+      - /opt/personal-site/content/notes:/opt/site-repo/content/notes
+      - /opt/personal-site/public/uploads/notes:/opt/site-repo/public/uploads/notes
     networks:
       - traefik-public
       - default
